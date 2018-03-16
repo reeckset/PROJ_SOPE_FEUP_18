@@ -1,3 +1,11 @@
+#the folowing lines eliminate the executables (with no extension)
+#remove all extensions
+*
+#unignore files with extensions
+!*.*
+#unignore folders
+!*/
+
 # Prerequisites
 *.d
 
