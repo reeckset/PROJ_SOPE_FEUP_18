@@ -9,11 +9,11 @@ byte getOptionsMask(int argc, char const *argv[], char *pattern, char *path) {
   byte mask = 0;
   for (i = 1; i < argc; i++) {
     if (argv[i][0] == '-') {
-      mask |= getMaskedValue(&argv[i][1]);
+      mask |= getMaskedValue(argv[i] + 1);
     } else {
       memcpy(pattern, argv[i], strlen(argv[i]));
       if (i < argc - 1) {
-        memcpy(path, argv[i + 1], strlen(argv[i]));
+        memcpy(path, argv[i + 1], strlen(argv[i + 1]));
       }
       break;
     }
@@ -23,7 +23,7 @@ byte getOptionsMask(int argc, char const *argv[], char *pattern, char *path) {
 
 byte getMaskedValue(char const *option) {
   byte result = 0;
-  while (option != NULL) {
+  while (option[0] != 0) {
     switch (option[0]) {
     case 'i':
       result |= notCaseFlag;

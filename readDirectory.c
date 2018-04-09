@@ -4,18 +4,17 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "divideFile.h"
 #include "readDirectory.h"
 
-void readPath(char *path) {
+void readPath(char *path, byte optionsMask, const char *pattern) {
   struct stat pathInfo;
   stat(path, &pathInfo);
-
   if (S_ISREG(pathInfo.st_mode)) {
-    printf("Path is file, so doesn't have any file inside.\n");
-    exit(2);
-  } else if (S_ISDIR(pathInfo.st_mode)) {
-    printf("Path is a folder/dir. Its files are: \n");
-
+    divideFile(path, pattern);
+    return;
+  }
+  if (S_ISDIR(pathInfo.st_mode)) {
     DIR *reqDir;
     // Since it is a folder, it can be opened
     reqDir = opendir(path);
@@ -29,17 +28,62 @@ void readPath(char *path) {
       filesList =
           (struct dirent *)realloc(filesList, counter * sizeof(struct dirent));
       memcpy(&filesList[counter - 1], dir, sizeof(*dir));
-      // filesList[counter-1] = *dir;
     }
 
     // close the dir after processing
     closedir(reqDir);
-
-    displayEntries(filesList, counter);
+    if (IsRecursiveFlag(optionsMask)) {
+      processEntries(filesList, counter, optionsMask, path, pattern);
+    } else {
+      processFiles(filesList, counter, path, pattern);
+    }
   }
 }
+
+// TODO DELETE
 void displayEntries(struct dirent *filesList, size_t size) {
   for (size_t i = 0; i < size; i++) {
     printf(" - %s\n", filesList[i].d_name);
   }
+}
+
+void processEntries(struct dirent *filesList, size_t size, byte optionsMask,
+                    char *path, const char *pattern) {
+  for (size_t i = 0; i < size; i++) {
+    if ((strlen(filesList[i].d_name) == 1 &&
+         strncmp(filesList[i].d_name, ".", 1) == 0) ||
+        (strlen(filesList[i].d_name) == 2 &&
+         strncmp(filesList[i].d_name, "..", 2) == 0))
+      continue;
+    char *newPath = getPath(path, filesList[i].d_name);
+    if (newPath != 0) {
+      readPath(newPath, optionsMask, pattern);
+      free(newPath);
+    }
+  }
+}
+
+void processFiles(struct dirent *filesList, size_t size, char *path,
+                  const char *pattern) {
+  for (size_t i = 0; i < size; i++) {
+    struct stat pathInfo;
+    char *filePath = getPath(path, filesList[i].d_name);
+    if (filePath == 0)
+      continue;
+    stat(filePath, &pathInfo);
+    if (S_ISREG(pathInfo.st_mode)) {
+      divideFile(filePath, pattern);
+    }
+    free(filePath);
+  }
+}
+
+char *getPath(char *folder, char *name) {
+  char *newPath =
+      (char *)calloc(strlen(name) + strlen(folder) + 2, sizeof(char));
+
+  strncat(newPath, folder, strlen(folder) + 1);
+  strncat(newPath, "/", strlen(newPath) + 2);
+  strncat(newPath, name, strlen(newPath) + strlen(name) + 1);
+  return newPath;
 }

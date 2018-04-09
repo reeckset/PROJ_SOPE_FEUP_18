@@ -2,20 +2,20 @@
 #include <stdbool.h>
 #include <string.h>
 
-bool contains(char *line, char *pattern) {
+bool contains(char *line, const char *pattern) {
   return strstr(line, pattern) != NULL;
 }
 
-bool containsNonCase(char *line, char *pattern) {
+bool containsNonCase(char *line, const char *pattern) {
   return strcasestr(line, pattern) != NULL;
 }
 
-bool containsWord(char *line, char *pattern) {
+bool containsWord(char *line, const char *pattern) {
   char *foundWord = strstr(line, pattern);
   return isWholeWord(line, foundWord, strlen(pattern));
 }
 
-bool containsNonCaseWord(char *line, char *pattern) {
+bool containsNonCaseWord(char *line, const char *pattern) {
   char *foundWord = strcasestr(line, pattern);
   return isWholeWord(line, foundWord, strlen(pattern));
 }

@@ -1,12 +1,14 @@
 #ifndef MACROS_H
 #define  MACROS_H
 
-#define notCaseFlag 1;
-#define showFileNamesFlag (1 << 1);
-#define showLineNumberFlag (1 << 2);
-#define nLinesFlag (1 << 3);
-#define wholeWordFlag (1 << 4);
-#define recursiveFlag (1 << 5);
+typedef char byte;
+
+#define notCaseFlag 1
+#define showFileNamesFlag (1 << 1)
+#define showLineNumberFlag (1 << 2)
+#define nLinesFlag (1 << 3)
+#define wholeWordFlag (1 << 4)
+#define recursiveFlag (1 << 5)
 
 #define IsNotCaseFlag(mask) (mask & notCaseFlag)
 #define IsShowFileNamesFlag(mask) (mask & showFileNamesFlag)

@@ -2,11 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "patternSearch.h"
 
-int devideFile(const char *fileName) {
+int divideFile(const char *fileName, const char *pattern) {
   FILE *fileToDivide;
-  char* line = NULL;
-  size_t line_size = 0;
+  char *line = NULL;
+  ssize_t line_size = 0;
 
   if ((fileToDivide = fopen(fileName, "r")) == NULL) {
     // Log the fail
@@ -14,12 +15,16 @@ int devideFile(const char *fileName) {
   }
 
   int line_number = 0;
-  while ((line_size = getline(&line, &line_size, fileToDivide)) != -1) {
-      line_number++;
-      // Process line
-      printf("Line %i: %s\n", line_number, line);
-      free(line);
-      line_size = 0;
+  size_t zero = 0;
+  while ((line_size = getline(&line, &zero, fileToDivide)) != -1) {
+    line_number++;
+    // Process line
+    if (contains(line, pattern)) {
+      printf("%s\n", line);
+    }
+
+    line_size = 0;
   }
+  free(line);
   return 0;
 }

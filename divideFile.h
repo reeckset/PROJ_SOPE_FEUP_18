@@ -1,1 +1,1 @@
-int devideFile(const char *fileName);
+int divideFile(const char *fileName, const char* pattern);

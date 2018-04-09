@@ -8,6 +8,7 @@
 
 #include "macros.h"
 #include "readArgs.h"
+#include "readDirectory.h"
 
 void displayEntries(struct dirent *filesList, size_t size);
 
@@ -17,9 +18,11 @@ int main(int argc, char const *argv[]) {
 
   checkArgs(argc, argv);
 
-  char emptyChar = 0;
-  char *pattern = &emptyChar;
-  char *path = &emptyChar;
+  char pattern[200] = {0};
+  char path[200] = {0};
+
   byte optionsMask = getOptionsMask(argc, argv, pattern, path);
+  readPath(path, optionsMask, pattern);
+
   return 0;
 }
