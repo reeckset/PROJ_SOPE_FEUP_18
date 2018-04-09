@@ -1,5 +1,5 @@
 #include "patternSearch.h"
-#include <cstdbool>
+#include <stdbool.h>
 #include <string.h>
 
 bool contains(char *line, char *pattern) {

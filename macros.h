@@ -8,6 +8,14 @@
 #define wholeWordFlag (1 << 4);
 #define recursiveFlag (1 << 5);
 
+#define IsNotCaseFlag(mask) (mask & notCaseFlag)
+#define IsShowFileNamesFlag(mask) (mask & showFileNamesFlag)
+#define IsShowLineNumberFlag(mask) (mask & showLineNumberFlag)
+#define IsNLinesFlag(mask) (mask & nLinesFlag)
+#define IsWholeWordFlag(mask) (mask & wholeWordFlag)
+#define IsRecursiveFlag(mask) (mask & recursiveFlag)
+
+
 /*
 
 BITMASK FOR PROGRAM FLAGS
