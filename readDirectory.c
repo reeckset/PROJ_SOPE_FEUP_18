@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "divideFile.h"
 #include "readDirectory.h"
@@ -14,33 +15,25 @@ void readPath(char *path, byte optionsMask, const char *pattern) {
     divideFile(path, pattern);
     return;
   }
+
   if (S_ISDIR(pathInfo.st_mode)) {
-    DIR *reqDir;
-    // Since it is a folder, it can be opened
-    reqDir = opendir(path);
-
-    struct dirent *dir;
-    struct dirent *filesList = (struct dirent *)malloc(0);
-
-    size_t counter = 0;
-    while ((dir = readdir(reqDir)) != NULL) { // If failed reading dir
-      counter++;
-      filesList =
-          (struct dirent *)realloc(filesList, counter * sizeof(struct dirent));
-      memcpy(&filesList[counter - 1], dir, sizeof(*dir));
-    }
-
-    // close the dir after processing
-    closedir(reqDir);
     if (IsRecursiveFlag(optionsMask)) {
-      processEntries(filesList, counter, optionsMask, path, pattern);
+      int pid = fork();
+      if (pid == 0) {
+        readDir(path, optionsMask, pattern);
+        exit(0);
+      } else if (pid < 0) {
+        perror("Fork error");
+        exit(2);
+      }
     } else {
-      processFiles(filesList, counter, path, pattern);
+      printf("The inserted path is a directory. Please use the -r recursive "
+             "flag to check its contents\n");
     }
   }
 }
 
-// TODO DELETE
+// TOD  O DELETE
 void displayEntries(struct dirent *filesList, size_t size) {
   for (size_t i = 0; i < size; i++) {
     printf(" - %s\n", filesList[i].d_name);
@@ -86,4 +79,24 @@ char *getPath(char *folder, char *name) {
   strncat(newPath, "/", strlen(newPath) + 2);
   strncat(newPath, name, strlen(newPath) + strlen(name) + 1);
   return newPath;
+}
+
+void readDir(char *path, byte optionsMask, const char *pattern) {
+  DIR *reqDir;
+  // Since it is a folder, it can be opened
+  reqDir = opendir(path);
+
+  struct dirent *dir;
+  struct dirent *filesList = (struct dirent *)malloc(0);
+
+  size_t counter = 0;
+  while ((dir = readdir(reqDir)) != NULL) { // If failed reading dir
+    counter++;
+    filesList =
+        (struct dirent *)realloc(filesList, counter * sizeof(struct dirent));
+    memcpy(&filesList[counter - 1], dir, sizeof(*dir));
+  }
+  // close the dir after processing
+  closedir(reqDir);
+  processEntries(filesList, counter, optionsMask, path, pattern);
 }

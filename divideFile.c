@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "patternSearch.h"
 
@@ -20,6 +21,7 @@ int divideFile(const char *fileName, const char *pattern) {
     line_number++;
     // Process line
     if (contains(line, pattern)) {
+      // sleep(10);
       printf("%s\n", line);
     }
 
