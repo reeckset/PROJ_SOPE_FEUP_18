@@ -21,7 +21,7 @@ int divideFile(const char *fileName, const char *pattern) {
     line_number++;
     // Process line
     if (contains(line, pattern)) {
-      // sleep(10);
+      sleep(1);
       printf("%s\n", line);
     }
 

@@ -7,6 +7,7 @@
 
 #include "divideFile.h"
 #include "readDirectory.h"
+#include "signals.h"
 
 void readPath(char *path, byte optionsMask, const char *pattern) {
   struct stat pathInfo;
@@ -20,6 +21,7 @@ void readPath(char *path, byte optionsMask, const char *pattern) {
     if (IsRecursiveFlag(optionsMask)) {
       int pid = fork();
       if (pid == 0) {
+        ignore_sig_int();
         readDir(path, optionsMask, pattern);
         exit(0);
       } else if (pid < 0) {

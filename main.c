@@ -18,6 +18,8 @@ void checkArgs(int argc, char const *argv[]);
 
 int main(int argc, char const *argv[]) {
 
+  swapSigintHandler();
+
   checkArgs(argc, argv);
 
   char pattern[200] = {0};
@@ -27,10 +29,8 @@ int main(int argc, char const *argv[]) {
 
   readPath(path, optionsMask, pattern);
 
-  swapSigintHandler();
-
   int status;
-  while (wait(&status) != -1) {
+  while (wait(&status) != -1 && WIFSTOPPED(status)) {
   }
 
   return 0;
