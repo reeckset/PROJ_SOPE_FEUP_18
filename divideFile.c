@@ -5,6 +5,7 @@
 
 #include "macros.h"
 #include "patternSearch.h"
+#include "logger.h"
 
 bool is_binary(const void *data, size_t len) {
   return memchr(data, '\0', len) != NULL;
@@ -64,6 +65,11 @@ int divideFile(const char *fileName, const char *pattern, byte optionsMask) {
     return -1;
   }
 
+  char *msg_buffer = NULL;
+  asprintf(&msg_buffer, "Opening %s", fileName);
+  write_to_logger(msg_buffer);
+  free(msg_buffer);
+
   int line_number = 0;
   size_t zero = 0;
   bool checked = false;
@@ -84,6 +90,11 @@ int divideFile(const char *fileName, const char *pattern, byte optionsMask) {
     line_size = 0;
   }
   free(line);
+  fclose(fileToDivide);
+  msg_buffer = NULL;
+  asprintf(&msg_buffer, "Closing %s", fileName);
+  write_to_logger(msg_buffer);
+  free(msg_buffer);
   return n_lines;
 }
 

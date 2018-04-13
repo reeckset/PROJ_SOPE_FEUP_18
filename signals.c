@@ -4,11 +4,14 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "logger.h"
+
 struct sigaction oldsb;
 struct sigaction oldsc;
 
 void sigint_handler(int signo) {
   kill(0, SIGTSTP);
+  write_to_logger("Stoping all children");
   char dayum = 0;
   char c;
   do {
@@ -18,10 +21,10 @@ void sigint_handler(int signo) {
   while((c = getchar()) != '\n' && c != EOF);
 
   if (dayum == 'y') {
-    printf("Sending sig kill\n");
+    write_to_logger("Killing all children");
     kill(0, SIGKILL);
   } else if( dayum == 'n'){
-    printf("sending sighup \n");
+    write_to_logger("Resuming all children");
     kill(0, SIGCONT);
   }
   printf("Handler end \n");
