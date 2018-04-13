@@ -14,6 +14,8 @@ byte getOptionsMask(int argc, char const *argv[], char *pattern, char *path) {
       memcpy(pattern, argv[i], strlen(argv[i]));
       if (i < argc - 1) {
         memcpy(path, argv[i + 1], strlen(argv[i + 1]));
+      } else {
+        mask |= readstdin;
       }
       break;
     }

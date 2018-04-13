@@ -86,3 +86,31 @@ int divideFile(const char *fileName, const char *pattern, byte optionsMask) {
   free(line);
   return n_lines;
 }
+
+int divideFilePtr(FILE *fileToDivide , const char *pattern, byte optionsMask) {
+  char fileName[] = "STDIN";
+  char *line = NULL;
+  ssize_t line_size = 0;
+  int n_lines = 0;
+  int line_number = 0;
+  size_t zero = 0;
+  bool checked = false;
+  while ((line_size = getline(&line, &zero, fileToDivide)) != -1) {
+    line_number++;
+    // Process line
+    if (!checked && is_binary(line, line_size)) {
+      printf("%s is binary\n", fileName);
+      break;
+    }
+    checked = true;
+    int ret_value;
+    if ((ret_value = choose_options(fileName, line, line_number, pattern,
+                                    optionsMask)) == -1)
+      return 0;
+    else
+      n_lines += ret_value;
+    line_size = 0;
+  }
+  free(line);
+  return n_lines;
+}
