@@ -7,7 +7,7 @@
 #include "logger.h"
 
 struct sigaction oldsb;
-struct sigaction oldsc;
+
 
 void sigint_handler(int signo) {
   kill(0, SIGTSTP);
@@ -59,7 +59,7 @@ void ignore_sig_int() {
   sb.sa_handler = SIG_IGN;
 
   if (sigaction(SIGINT, &sb, &oldsa) < 0) {
-    perror("SIGTSTP handler error");
+    perror("SIGINT handler error");
     exit(1);
   }
 

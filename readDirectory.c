@@ -22,7 +22,14 @@ int readPath(char *path, byte optionsMask, const char *pattern) {
       int pid = fork();
       if (pid == 0) {
         ignore_sig_int();
-        exit(readDir(path, optionsMask, pattern));
+        int n_lines = readDir(path, optionsMask, pattern);
+        siginfo_t t;
+        while (waitid(P_ALL, -1, &t, WEXITED) != -1) {
+          if (t.si_code == CLD_EXITED)
+            if (t.si_status > 0)
+              n_lines += t.si_status;
+        }
+        exit(n_lines);
       } else if (pid < 0) {
         perror("Fork error");
         exit(-2);
