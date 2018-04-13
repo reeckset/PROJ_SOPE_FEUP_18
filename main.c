@@ -27,10 +27,15 @@ int main(int argc, char const *argv[]) {
 
   byte optionsMask = getOptionsMask(argc, argv, pattern, path);
 
-  readPath(path, optionsMask, pattern);
 
+  int n_lines = readPath(path, optionsMask, pattern);
   siginfo_t t;
-  while (waitid(P_ALL, -1, &t, WEXITED) != -1);
-  printf("Father exit\n");
+  while (waitid(P_ALL, -1, &t, WEXITED) != -1) {
+    if(t.si_code == CLD_EXITED)
+      if(t.si_status > 0)
+        n_lines +=  t.si_status;
+  }
+  if(IsNLinesFlag(optionsMask))
+    printf("Found %d lines.\n", n_lines);
   return 0;
 }

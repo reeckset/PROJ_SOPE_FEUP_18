@@ -24,11 +24,11 @@ bool isWholeWord(char *line, char *foundWord, unsigned int sizeOfFoundWord) {
   if (foundWord == NULL) {
     return false;
   }
-  if (foundWord == line || isDelimiter(*foundWord)) {
+  if (foundWord == line || isDelimiter(*(foundWord - 1))) {
     // sanity check - never going to be false because one
     // contains the other
-    if (sizeOfFoundWord + 1 <= strlen(line)) {
-      return isDelimiter(foundWord[sizeOfFoundWord + 1]);
+    if (sizeOfFoundWord + 1 <= strlen(foundWord)) {
+      return isDelimiter(foundWord[sizeOfFoundWord]);
     }
   }
   return false;

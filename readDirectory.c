@@ -10,12 +10,11 @@
 #include "readDirectory.h"
 #include "signals.h"
 
-void readPath(char *path, byte optionsMask, const char *pattern) {
+int readPath(char *path, byte optionsMask, const char *pattern) {
   struct stat pathInfo;
   stat(path, &pathInfo);
   if (S_ISREG(pathInfo.st_mode)) {
-    divideFile(path, pattern);
-    return;
+    return divideFile(path, pattern, optionsMask);
   }
 
   if (S_ISDIR(pathInfo.st_mode)) {
@@ -23,17 +22,17 @@ void readPath(char *path, byte optionsMask, const char *pattern) {
       int pid = fork();
       if (pid == 0) {
         ignore_sig_int();
-        readDir(path, optionsMask, pattern);
-        exit(0);
+        exit(readDir(path, optionsMask, pattern));
       } else if (pid < 0) {
         perror("Fork error");
-        exit(2);
+        exit(-2);
       }
     } else {
       printf("The inserted path is a directory. Please use the -r recursive "
              "flag to check its contents\n");
     }
   }
+  return 0;
 }
 
 // TODO DELETE
@@ -43,8 +42,9 @@ void displayEntries(struct dirent *filesList, size_t size) {
   }
 }
 
-void processEntries(struct dirent *filesList, size_t size, byte optionsMask,
+int processEntries(struct dirent *filesList, size_t size, byte optionsMask,
                     char *path, const char *pattern) {
+  int n_lines = 0;
   for (size_t i = 0; i < size; i++) {
     if ((strlen(filesList[i].d_name) == 1 &&
          strncmp(filesList[i].d_name, ".", 1) == 0) ||
@@ -53,13 +53,14 @@ void processEntries(struct dirent *filesList, size_t size, byte optionsMask,
       continue;
     char *newPath = getPath(path, filesList[i].d_name);
     if (newPath != 0) {
-      readPath(newPath, optionsMask, pattern);
+      n_lines += readPath(newPath, optionsMask, pattern);
       free(newPath);
     }
   }
-
+  return n_lines;
 }
 
+/*
 void processFiles(struct dirent *filesList, size_t size, char *path,
                   const char *pattern) {
   for (size_t i = 0; i < size; i++) {
@@ -74,7 +75,7 @@ void processFiles(struct dirent *filesList, size_t size, char *path,
     free(filePath);
   }
 }
-
+*/
 char *getPath(char *folder, char *name) {
   char *newPath =
       (char *)calloc(strlen(name) + strlen(folder) + 2, sizeof(char));
@@ -85,7 +86,7 @@ char *getPath(char *folder, char *name) {
   return newPath;
 }
 
-void readDir(char *path, byte optionsMask, const char *pattern) {
+int readDir(char *path, byte optionsMask, const char *pattern) {
   DIR *reqDir;
   // Since it is a folder, it can be opened
   reqDir = opendir(path);
@@ -102,5 +103,5 @@ void readDir(char *path, byte optionsMask, const char *pattern) {
   }
   // close the dir after processing
   closedir(reqDir);
-  processEntries(filesList, counter, optionsMask, path, pattern);
+  return processEntries(filesList, counter, optionsMask, path, pattern);
 }
