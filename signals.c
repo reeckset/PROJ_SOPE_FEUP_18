@@ -27,7 +27,6 @@ void sigint_handler(int signo) {
     write_to_logger("Resuming all children");
     kill(0, SIGCONT);
   }
-  printf("Handler end \n");
   sleep(1);
 }
 

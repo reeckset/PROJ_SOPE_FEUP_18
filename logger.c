@@ -9,6 +9,7 @@ FILE *logger = NULL;
 void write_to_logger(const char *message) {
   if (logger == NULL) {
     fprintf(stderr, "Logfile is NULL\n");
+    return;
   }
 
   clock_t start;
