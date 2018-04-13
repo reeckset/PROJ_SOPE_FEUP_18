@@ -9,12 +9,10 @@ struct sigaction oldsc;
 
 void sigint_handler(int signo) {
   kill(0, SIGTSTP);
-
   char dayum = 0;
   char c;
-  printf("%d\n", getpid());
   do {
-    printf("Are you sure you want to stop this search? (y/n)\n");
+    printf("\nAre you sure you want to stop this search? (y/n)\n");
   } while(scanf("%c", &dayum)!= 1 && dayum != 'n' && dayum != 'y');
 
   while((c = getchar()) != '\n' && c != EOF);
@@ -27,6 +25,7 @@ void sigint_handler(int signo) {
     kill(0, SIGCONT);
   }
   printf("Handler end \n");
+  sleep(1);
 }
 
 void swapSigintHandler() {

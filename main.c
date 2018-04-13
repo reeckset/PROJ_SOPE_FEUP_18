@@ -29,9 +29,8 @@ int main(int argc, char const *argv[]) {
 
   readPath(path, optionsMask, pattern);
 
-  int status;
-  while (wait(&status) != -1 && WIFSTOPPED(status)) {
-  }
-
+  siginfo_t t;
+  while (waitid(P_ALL, -1, &t, WEXITED) != -1);
+  printf("Father exit\n");
   return 0;
 }

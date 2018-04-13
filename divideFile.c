@@ -5,6 +5,11 @@
 
 #include "patternSearch.h"
 
+bool is_binary(const void *data, size_t len) {
+  return memchr(data, '\0', len) != NULL;
+}
+
+
 int divideFile(const char *fileName, const char *pattern) {
   FILE *fileToDivide;
   char *line = NULL;
@@ -17,11 +22,18 @@ int divideFile(const char *fileName, const char *pattern) {
 
   int line_number = 0;
   size_t zero = 0;
+  bool checked = false;
   while ((line_size = getline(&line, &zero, fileToDivide)) != -1) {
     line_number++;
     // Process line
+    if(!checked && is_binary(line, line_size)) {
+      printf("%s is binary\n", fileName);
+      break;
+    }
+    checked = true;
+
     if (contains(line, pattern)) {
-      sleep(1);
+      //sleep(1);
       printf("%s\n", line);
     }
 

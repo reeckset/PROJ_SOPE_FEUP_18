@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #include "divideFile.h"
 #include "readDirectory.h"
@@ -35,7 +36,7 @@ void readPath(char *path, byte optionsMask, const char *pattern) {
   }
 }
 
-// TOD  O DELETE
+// TODO DELETE
 void displayEntries(struct dirent *filesList, size_t size) {
   for (size_t i = 0; i < size; i++) {
     printf(" - %s\n", filesList[i].d_name);
@@ -56,6 +57,7 @@ void processEntries(struct dirent *filesList, size_t size, byte optionsMask,
       free(newPath);
     }
   }
+
 }
 
 void processFiles(struct dirent *filesList, size_t size, char *path,
