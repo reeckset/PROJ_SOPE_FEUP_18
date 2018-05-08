@@ -1,5 +1,6 @@
 #ifndef MACROS_H
 #define MACROS_H
+#endif
 
 #define SUCCESSFULL_EXIT 0
 #define ILLEGAL_ARG_EXIT 1
@@ -9,4 +10,12 @@
 
 #define SERVER_FIFO "/tmp/requests"
 
-#endif
+#define MAX_ROOM_SEATS 9999
+#define MAX_CLI_SEATS 99
+#define MAX_OPEN_TIME 300
+#define MAX_TICKET_OFFICES 8
+#define WIDTH_PID 5
+#define WIDTH_XXNN 5
+#define WIDTH_SEAT 4
+
+#define min(a,b) ((a<b) ? a : b)
