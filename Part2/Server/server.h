@@ -6,13 +6,16 @@ typedef int Seat;
 
 typedef struct {
     Seat * seatList;
+    int nSeats;
+    int nOcuppiedSeats;
 } TicketOfficeArgs;
 
 void initServer(Input inputs);
 
 void * initTicketOffice(void * ticketOfficeArgs);
 
-void processClientMsg();
+void processClientMsg(TicketOfficeArgs* args);
+void activateSignalHandler();
 
 
 
