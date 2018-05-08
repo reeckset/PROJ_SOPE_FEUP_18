@@ -2,21 +2,30 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "server.h"
+#include "macros.h"
 
 bool g_tickets_are_open = true;
+pthread_mutex_t readRequestsMutex = PTHREAD_MUTEX_INITIALIZER;
 
 void closeTicketOfficesSignalHandler(int signo) {
   g_tickets_are_open = false;
 }
 
 void initServer(Input inputs) {
+
+  FILE* fdServerFifo = initRequestsFifo();
+
   TicketOfficeArgs * ticketOfficeArgs = (TicketOfficeArgs *) malloc(sizeof(TicketOfficeArgs));
 
   ticketOfficeArgs->seatList = (Seat *) malloc(inputs.nSeats * sizeof(Seat));
   ticketOfficeArgs->nSeats = inputs.nSeats;
   ticketOfficeArgs->nOcuppiedSeats = 0;
+  ticketOfficeArgs->fdServerFifo = fdServerFifo;
 
   activateSignalHandler();
 
@@ -34,6 +43,7 @@ void initServer(Input inputs) {
 
 void * initTicketOffice(void * ticketOfficeArgs) {
   TicketOfficeArgs* args = (TicketOfficeArgs*) ticketOfficeArgs;
+
 
 
   while(g_tickets_are_open) {
@@ -56,14 +66,39 @@ void activateSignalHandler() {
 
 void processClientMsg(TicketOfficeArgs* args) {
   //BLOQUEAR A LEITURA ANTES
+  pthread_mutex_lock(&readRequestsMutex);
+
+
+  //TODO LER MSG (VER ESTRUTURA DA MSG (PROTOCOLO DE COMUNICAÇAO))
+  Request request;
+  char selectedSeats[MAX_SEATS_STRING_SIZE];
   //tentar ler o fifo requests (ver se tem cenas para ler)
+  fscanf(args->fdServerFifo, "%d %d %d %[^\n]\n", &request.pid, &request.numWantedSeats, &request.numPreferredSeats, selectedSeats);
+
+  //LIBERTAR O FIFO
+  pthread_mutex_unlock(&readRequestsMutex);
+
+
+  //parse string selectedSeats to seat array
+
+  //se tiver, processar msg -> atualizando args (altera Seats)
+
+
+}
+
+FILE* initRequestsFifo() {
   if (mkfifo(SERVER_FIFO, 0660) == -1) {
     perror("Error making the server's fifo");
     exit(FIFO_ERROR_EXIT);
   }
-  open(SERVER_FIFO, O_RDONLY)
-  //se tiver, processar msg -> atualizando args (altera Seats)
-  //LIBERTAR O FIFO
 
+  int fdServerFifo = open(SERVER_FIFO, O_RDONLY);
+  if(fdServerFifo == -1) {
+    perror("Error opening server FIFO.");
+    exit(FIFO_ERROR_EXIT);
+  }
 
+  FILE* fServerFifo = fdopen(fdServerFifo, "r");
+
+  return fServerFifo;
 }

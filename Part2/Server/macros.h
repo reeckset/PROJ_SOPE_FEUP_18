@@ -20,3 +20,4 @@
 #define WIDTH_SEAT 4
 
 #define min(a,b) ((a<b) ? a : b)
+#define MAX_SEATS_STRING_SIZE 4 * MAX_CLI_SEATS + MAX_CLI_SEATS - 1 //4 chars * 99 + 98 spaces

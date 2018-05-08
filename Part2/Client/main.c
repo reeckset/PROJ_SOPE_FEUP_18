@@ -103,5 +103,6 @@ int main(int argc, char const *argv[]) {
          request.numWantedSeats);
 
   free(request.preferredSeats);
+  //TODO UNLINK FIFO
   exit(0);
 }
