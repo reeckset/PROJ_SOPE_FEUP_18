@@ -2,6 +2,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -24,17 +25,18 @@ void printfIntArray(int *array, int size) {
   printf("\n");
 }
 
-void countTimeout(int timeout) {
+void gracefulShutdownOnTimeout(int timeout) {
   int sleepTime = sleep(timeout);
   if (sleepTime != 0) {
     kill(0, SIGKILL);
   }
+  // TODO BEFORE KILLING CHILD, CHECK IF FIFO IS EMPTY TO AVOID INFORMATION LOSS
+  // EITHER DO FSEEK OR USE MUTEX WITH SERVER
 }
 
-char *createClientFifo(Request *request) {
+char *createResponseFifo() {
   char *fifoName = NULL;
-  request->pid = getpid();
-  asprintf(&fifoName, "/tmp/ans%d", request->pid);
+  asprintf(&fifoName, "/tmp/ans%d", getpid());
   if (mkfifo(fifoName, 0660) == -1) {
     perror("Error making the client's fifo");
     exit(FIFO_ERROR_EXIT);
@@ -42,41 +44,69 @@ char *createClientFifo(Request *request) {
   return fifoName;
 }
 
-void writeRequestToFifo(Request *request, int fileDescriptor) {
-  // TODO SECCAO CRITICA
+void writeRequestToFifo(const char *numWantedSeats, int numPreferredSeats,
+                        const char *preferredSeats) {
+  int fdResquest = open(SERVER_FIFO, O_WRONLY);
+  char *sstream = NULL;
+  asprintf(&sstream, "%d %s %d %s", getpid(), numWantedSeats, numPreferredSeats,
+           preferredSeats);
 
-  write(fileDescriptor, &(request->pid), sizeof(int));
-  write(fileDescriptor, &(request->numWantedSeats), sizeof(int));
-  write(fileDescriptor, &(request->numPreferredSeats), sizeof(int));
-  int i;
-  for (i = 0; i < request->numPreferredSeats; i++) {
-    write(fileDescriptor, request->preferredSeats + i, sizeof(int));
-  }
+  write(fdResquest, sstream, strlen(sstream) + 1);
+  free(sstream);
 
   // TODO FIM DA SECCAO CRITICA
 }
 
-void sendRequest(Request request) {
-  char *clientFifoName = createClientFifo(&request);
-
-  int fdServer = open(SERVER_FIFO, O_WRONLY);
-  int fdClient = open(clientFifoName, O_RDONLY);
-
-  writeRequestToFifo(&request, fdClient);
-
-  //  readFromServer();
+void readAndPrintReservedSeats(int fd) {
+  int numReservedSeats, i, reservedSeat;
+  if (read(fd, &numReservedSeats, sizeof(int)) != sizeof(int)) {
+    perror("Error reading number of reserved seats");
+    exit(READING_FIFO_ERROR);
+  }
+  for (i = 0; i < numReservedSeats; i++) {
+    printf("Printing successfully reserved seats: ");
+    if (read(fd, &reservedSeat, sizeof(int)) != sizeof(int)) {
+      perror("Error reading reserved seats");
+      exit(READING_FIFO_ERROR);
+    } else {
+      printf("%d ", reservedSeat);
+    }
+    printf("\n");
+  }
 }
 
-void attemptSend(Request request, int timeout) {
+void processReturnCode(int code) {}
+
+void readFromServer(int fdResponse) {
+  int returnCode;
+  if (read(fdResponse, &returnCode, sizeof(int)) != sizeof(int)) {
+    perror("Error reading server response");
+    exit(READING_FIFO_ERROR);
+  }
+  if (returnCode != 0) {
+    processReturnCode(returnCode);
+  } else {
+    readAndPrintReservedSeats(fdResponse);
+  }
+}
+
+void sendRequest(const char **argv) {
+  writeRequestToFifo(argv[2], getIntAmount(argv[3]), argv[3]);
+}
+
+void attemptSend(const char **argv, int timeout) {
+  char *responseFifoName = createResponseFifo();
+  sendRequest(argv);
   int pid = fork();
   if (pid < 0) {
     perror("");
     exit(FORK_ERROR_EXIT);
   }
   if (pid == 0) { // filho
-    sendRequest(request);
+    int fdResponse = open(responseFifoName, O_RDONLY);
+    readFromServer(fdResponse);
   } else { // pai
-    countTimeout(timeout);
+    gracefulShutdownOnTimeout(timeout);
   }
 }
 
@@ -97,7 +127,7 @@ int main(int argc, char const *argv[]) {
   Request request;
   populateRequest(&request, argv);
 
-  attemptSend(request, timeout);
+  attemptSend(argv, timeout);
 
   printf("Time out: %d, Number of wanted seats: %d\n", timeout,
          request.numWantedSeats);
