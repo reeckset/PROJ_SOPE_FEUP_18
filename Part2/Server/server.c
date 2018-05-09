@@ -22,7 +22,9 @@ void initServer(Input inputs) {
 
   TicketOfficeArgs * ticketOfficeArgs = (TicketOfficeArgs *) malloc(sizeof(TicketOfficeArgs));
 
-  ticketOfficeArgs->seatList = (Seat *) malloc(inputs.nSeats * sizeof(Seat));
+  Seat seatList[inputs.nSeats] = {0};
+
+  ticketOfficeArgs->seatList = seatList;
   ticketOfficeArgs->nSeats = inputs.nSeats;
   ticketOfficeArgs->nOcuppiedSeats = 0;
   ticketOfficeArgs->fdServerFifo = fdServerFifo;
@@ -73,15 +75,26 @@ void processClientMsg(TicketOfficeArgs* args) {
   Request request;
   char selectedSeats[MAX_SEATS_STRING_SIZE];
   //tentar ler o fifo requests (ver se tem cenas para ler)
+  //se tiver, processar msg -> atualizando args (altera Seats)
   fscanf(args->fdServerFifo, "%d %d %d %[^\n]\n", &request.pid, &request.numWantedSeats, &request.numPreferredSeats, selectedSeats);
 
   //LIBERTAR O FIFO
   pthread_mutex_unlock(&readRequestsMutex);
 
-
   //parse string selectedSeats to seat array
+  int preferredSeatsSize;
+  request.preferredSeats = stringToIntArray(selectedSeats, "Parsing Desired Seat List", &preferredSeatsSize);
 
-  //se tiver, processar msg -> atualizando args (altera Seats)
+  //LOCK PARA VER DISPONIBILDADE (ALLOCATION MUTEX)
+
+  //ver disponibilidade de lugares
+  //se disponivel, alocar
+  Seat* requestedSeatsResult = getRequestedSeats(args->seatList, request.preferredSeats, preferredSeatsSize, request.numWantedSeats);
+  if(requestedSeatsResult != NULL) { // Seats are available
+    bookRequestedSeats(args->seatList, requestedSeatsResult, request.numWantedSeats, request.pid);
+  } else {
+    //se nao, UNLOCK DE ALLOCATION MUTEX
+  }
 
 
 }
@@ -101,4 +114,46 @@ FILE* initRequestsFifo() {
   FILE* fServerFifo = fdopen(fdServerFifo, "r");
 
   return fServerFifo;
+}
+
+
+int isSeatFree(Seat* seats, int seatNum) {
+  return (seats[seatNum] == 0);
+}
+
+Seat* getRequestedSeats(Seat* seatList, Seat* requestedSeats, int nRequestedSeats, int minSeats) {
+  Seat* requestResult = (Seat*) malloc(minSeats * sizeof(Seat));
+  int reservedSeatsCounter = 0;
+
+  int i;
+  for(i = 0; i < nRequestedSeats; i++ ) {
+
+    if(reservedSeatsCounter == minSeats) {
+      break;
+    }
+
+    if(isSeatFree(seatList, requestedSeats[i]) ) {
+      requestResult[reservedSeatsCounter] = requestedSeats[i];
+      reservedSeatsCounter++;
+    }
+  }
+
+  if(reservedSeatsCounter < minSeats) {
+    return NULL;
+  } else {
+    return requestResult;
+  }
+
+
+}
+
+void bookSeat(Seat* seats, int seatNum, int clientId) {
+  seats[seatNum] = clientId;
+}
+
+void bookRequestedSeats(Seat* seats, Seat* requestedSeats, int nRequestSeats, int clientId) {
+  int i;
+  for(i = 0; i < nRequestSeats; i++) {
+    bookSeat(seats, requestedSeats[i], clientId);
+  }
 }
