@@ -2,14 +2,16 @@
 #define SERVER_H
 
 #include <stdio.h>
+#include <semaphore.h>
+
 #include "utilities.h"
 typedef int Seat;
 
 typedef struct {
-    Seat * seatList;
-    int nSeats;
-    int nOcuppiedSeats;
-    FILE* fdServerFifo;
+  Seat *seatList;
+  int nSeats;
+  int nOcuppiedSeats;
+  FILE *fdServerFifo;
 } TicketOfficeArgs;
 
 typedef struct {
@@ -21,20 +23,26 @@ typedef struct {
 
 void initServer(Input inputs);
 
-void * initTicketOffice(void * ticketOfficeArgs);
-FILE* initRequestsFifo();
+void *initTicketOffice(void *ticketOfficeArgs);
+FILE *initRequestsFifo();
 
-void processClientMsg(TicketOfficeArgs* args);
+void processClientMsg(TicketOfficeArgs *args);
 void activateSignalHandler();
 
+int isSeatFree(Seat *seats, int seatNum);
+int *getRequestedSeats(Seat *seatList, Seat *requestedSeats,
+                       int nRequestedSeats, int minSeats, int pid);
 
+void bookSeat(Seat *seats, int seatNum, int clientId);
+void bookRequestedSeats(Seat *seats, int *requestedSeats, int nRequestSeats,
+                        int clientId);
 
-int isSeatFree(Seat* seats, int seatNum);
-Seat* getRequestedSeats(Seat* seatList, Seat* requestedSeats, int nRequestedSeats, int minSeats, int pid);
+void freeSeat(Seat *seats, int seatNum);
+void freeSeats(Seat *seats, Seat *requestResult, int sizeOfRequestResult);
 
-void bookSeat(Seat* seats, int seatNum, int clientId);
-void bookRequestedSeats(Seat* seats, Seat* requestedSeats, int nRequestSeats, int clientId);
+void allocSeat(Seat *seatList, Seat seatToAlloc, int pid,
+               int *reservedSeatsCounter, Seat *requestResult);
 
-void freeSeat(Seat* seats, int seatNum);
+sem_t *get_seat_semaphore(Seat seat);
 
 #endif

@@ -86,3 +86,16 @@ int *stringToIntArray(const char *str, const char *errorMsg, int *size) {
   free(strCopy);
   return result;
 }
+
+char *intArrayToString(int* array, int size) {
+  char* buffer = NULL;
+  asprintf(&buffer, "%d ", size);
+  for (int i = 0; i < size; i++) {
+    char *tmp = NULL;
+    asprintf(&tmp,"%d ", array[i]);
+    buffer = (char*) realloc(buffer, strlen(buffer) + strlen(tmp) + 1);
+    strcat(buffer, tmp);
+    free(tmp);
+  }
+  return buffer;
+}

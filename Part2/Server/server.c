@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <semaphore.h>
+#include <unistd.h>
 
 #include "macros.h"
 #include "server.h"
@@ -40,8 +40,8 @@ void initServer(Input inputs) {
   }
 
   void *retVal;
-  for (pthread_t i = 0; i < inputs.nTicketOffices; i++) {
-    pthread_join(tids[i], &retVal)
+  for (int i = 0; i < inputs.nTicketOffices; i++) {
+    pthread_join(tids[i], &retVal);
   }
 
   free(seatList);
@@ -95,17 +95,19 @@ void processClientMsg(TicketOfficeArgs *args) {
   request.preferredSeats = stringToIntArray(
       selectedSeats, "Parsing Desired Seat List", &preferredSeatsSize);
 
-
   // ver disponibilidade de lugares
   // se disponivel, alocar
-  Seat *requestedSeatsResult = getRequestedSeats(
+  int *requestedSeatsResult = getRequestedSeats(
       args->seatList, request.preferredSeats, preferredSeatsSize,
       request.numWantedSeats, request.pid);
   if (requestedSeatsResult != NULL) { // Seats are available
     args->nOcuppiedSeats += request.numWantedSeats;
+    // TODO server response
+    free(requestedSeatsResult);
   } else {
-
+    // TODO server response
   }
+  free(request.preferredSeats);
 }
 
 FILE *initRequestsFifo() {
@@ -127,11 +129,11 @@ FILE *initRequestsFifo() {
 
 int isSeatFree(Seat *seats, int seatNum) { return (seats[seatNum] == 0); }
 
-Seat *getRequestedSeats(Seat *seatList, Seat *requestedSeats,
-                        int nRequestedSeats, int minSeats, int pid) {
-  // TODO Free
+int *getRequestedSeats(Seat *seatList, int *requestedSeats, int nRequestedSeats,
+                       int minSeats, int pid) {
   int *requestResult = (int *)malloc(minSeats * sizeof(int));
   int reservedSeatsCounter = 0;
+  sem_t *sem;
 
   int i;
   for (i = 0; i < nRequestedSeats; i++) {
@@ -141,13 +143,14 @@ Seat *getRequestedSeats(Seat *seatList, Seat *requestedSeats,
     }
     sem = get_seat_semaphore(requestedSeats[i]);
     sem_wait(sem);
-    allocSeat(seatList, requestedSeats[i], pid, &reservedSeatsCounter, requestResult);
+    allocSeat(seatList, requestedSeats[i], pid, &reservedSeatsCounter,
+              requestResult);
     sem_post(sem);
     sem_close(sem);
   }
 
   if (reservedSeatsCounter < minSeats) {
-    freeSeats(seatList, reservedSeatsCounter, requestResult);
+    freeSeats(seatList, requestResult, reservedSeatsCounter);
     return NULL;
   } else {
     return requestResult;
@@ -158,19 +161,20 @@ void bookSeat(Seat *seats, int seatNum, int clientId) {
   seats[seatNum] = clientId;
 }
 
-void allocSeat(Seat* seatist, Seat seatToAlloc, int pid, int* reservedSeatsCounter, Seat* requestResult) {
+void allocSeat(Seat *seatList, Seat seatToAlloc, int pid,
+               int *reservedSeatsCounter, int *requestResult) {
   if (isSeatFree(seatList, seatToAlloc)) {
-    requestResult[reservedSeatsCounter] = requestedSeats[i];
+    requestResult[*reservedSeatsCounter] = seatToAlloc;
     bookSeat(seatList, seatToAlloc, pid);
     (*reservedSeatsCounter)++;
   }
 }
 
-sem_t* get_seat_semaphore(Seat seat) {
-  sem_t* sem;
-  char buffer = NULL;
-  asprintf(&buffer,"/sem%d", seat);
-  if((sem = sem_open(buffer, O_CREAT)) == SEM_FAILED){
+sem_t *get_seat_semaphore(Seat seat) {
+  sem_t *sem;
+  char *buffer = NULL;
+  asprintf(&buffer, "/sem%d", seat);
+  if ((sem = sem_open(buffer, O_CREAT)) == SEM_FAILED) {
     perror("Opennig semaphore error");
     exit(SEMAPHORE_ERROR);
   }
@@ -178,13 +182,11 @@ sem_t* get_seat_semaphore(Seat seat) {
   return sem;
 }
 
-void freeSeat(Seat* seats, int seatNum) {
-    seats[seatNum] = 0;
-}
+void freeSeat(Seat *seats, int seatNum) { seats[seatNum] = 0; }
 
-void freeSeats(Seat* seats, Seat* requestResult, int sizeOfRequestResult){
-  for (int i = 0; i < count; i++) {
-    sem_t* sem = get_seat_semaphore(requestedSeats[i]);
+void freeSeats(Seat *seats, Seat *requestResult, int sizeOfRequestResult) {
+  for (int i = 0; i < sizeOfRequestResult; i++) {
+    sem_t *sem = get_seat_semaphore(requestResult[i]);
     sem_wait(sem);
     freeSeat(seats, requestResult[i]);
     sem_post(sem);
