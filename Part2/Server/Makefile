@@ -1,7 +1,7 @@
-TARGET = client
+TARGET = server
 LIBS = -lm
 CC = gcc
-CFLAGS = -g -Wall -D_GNU_SOURCE
+CFLAGS = -g -Wall -pthread
 
 .PHONY: default all clean
 
