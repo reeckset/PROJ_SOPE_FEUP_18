@@ -1,28 +1,28 @@
+#include <fcntl.h>
 #include <pthread.h>
-#include <stdlib.h>
 #include <signal.h>
 #include <stdio.h>
-#include <sys/types.h>
+#include <stdlib.h>
 #include <sys/stat.h>
-#include <fcntl.h>
+#include <sys/types.h>
+#include <semaphore.h>
 
-#include "server.h"
 #include "macros.h"
+#include "server.h"
 
 bool g_tickets_are_open = true;
 pthread_mutex_t readRequestsMutex = PTHREAD_MUTEX_INITIALIZER;
 
-void closeTicketOfficesSignalHandler(int signo) {
-  g_tickets_are_open = false;
-}
+void closeTicketOfficesSignalHandler(int signo) { g_tickets_are_open = false; }
 
 void initServer(Input inputs) {
 
-  FILE* fdServerFifo = initRequestsFifo();
+  FILE *fdServerFifo = initRequestsFifo();
 
-  TicketOfficeArgs * ticketOfficeArgs = (TicketOfficeArgs *) malloc(sizeof(TicketOfficeArgs));
+  TicketOfficeArgs *ticketOfficeArgs =
+      (TicketOfficeArgs *)malloc(sizeof(TicketOfficeArgs));
 
-  Seat seatList[inputs.nSeats] = {0};
+  Seat *seatList = (Seat *)calloc(inputs.nSeats, sizeof(Seat));
 
   ticketOfficeArgs->seatList = seatList;
   ticketOfficeArgs->nSeats = inputs.nSeats;
@@ -31,24 +31,34 @@ void initServer(Input inputs) {
 
   activateSignalHandler();
 
-  pthread_t * tids = (pthread_t*) malloc(inputs.nTicketOffices * sizeof(pthread_t));
+  pthread_t *tids =
+      (pthread_t *)malloc(inputs.nTicketOffices * sizeof(pthread_t));
 
   int i;
-  for(i = 0; i < inputs.nTicketOffices; i++) {
-    pthread_create(&tids[i], NULL, initTicketOffice, (void *) ticketOfficeArgs);
+  for (i = 0; i < inputs.nTicketOffices; i++) {
+    pthread_create(&tids[i], NULL, initTicketOffice, (void *)ticketOfficeArgs);
   }
 
-  void * retVal;
-  pthread_exit(retVal);
+  void *retVal;
+  for (pthread_t i = 0; i < inputs.nTicketOffices; i++) {
+    pthread_join(tids[i], &retVal)
+  }
+
+  free(seatList);
+  if (fclose(fdServerFifo) != 0) {
+    perror("Close fifo error");
+    exit(FIFO_ERROR_EXIT);
+  } else {
+    unlink(SERVER_FIFO);
+  }
+
+  // TODO unlink semaphores
 }
 
+void *initTicketOffice(void *ticketOfficeArgs) {
+  TicketOfficeArgs *args = (TicketOfficeArgs *)ticketOfficeArgs;
 
-void * initTicketOffice(void * ticketOfficeArgs) {
-  TicketOfficeArgs* args = (TicketOfficeArgs*) ticketOfficeArgs;
-
-
-
-  while(g_tickets_are_open) {
+  while (g_tickets_are_open) {
     processClientMsg(args);
   }
 
@@ -66,94 +76,118 @@ void activateSignalHandler() {
   }
 }
 
-void processClientMsg(TicketOfficeArgs* args) {
-  //BLOQUEAR A LEITURA ANTES
+void processClientMsg(TicketOfficeArgs *args) {
+
   pthread_mutex_lock(&readRequestsMutex);
 
-
-  //TODO LER MSG (VER ESTRUTURA DA MSG (PROTOCOLO DE COMUNICAÇAO))
+  // TODO LER MSG (VER ESTRUTURA DA MSG (PROTOCOLO DE COMUNICAÇAO))
   Request request;
   char selectedSeats[MAX_SEATS_STRING_SIZE];
-  //tentar ler o fifo requests (ver se tem cenas para ler)
-  //se tiver, processar msg -> atualizando args (altera Seats)
-  fscanf(args->fdServerFifo, "%d %d %d %[^\n]\n", &request.pid, &request.numWantedSeats, &request.numPreferredSeats, selectedSeats);
+  // tentar ler o fifo requests (ver se tem cenas para ler)
+  // se tiver, processar msg -> atualizando args (altera Seats)
+  fscanf(args->fdServerFifo, "%d %d %d %[^\n]\n", &request.pid,
+         &request.numWantedSeats, &request.numPreferredSeats, selectedSeats);
 
-  //LIBERTAR O FIFO
   pthread_mutex_unlock(&readRequestsMutex);
 
-  //parse string selectedSeats to seat array
+  // parse string selectedSeats to seat array
   int preferredSeatsSize;
-  request.preferredSeats = stringToIntArray(selectedSeats, "Parsing Desired Seat List", &preferredSeatsSize);
+  request.preferredSeats = stringToIntArray(
+      selectedSeats, "Parsing Desired Seat List", &preferredSeatsSize);
 
-  //LOCK PARA VER DISPONIBILDADE (ALLOCATION MUTEX)
 
-  //ver disponibilidade de lugares
-  //se disponivel, alocar
-  Seat* requestedSeatsResult = getRequestedSeats(args->seatList, request.preferredSeats, preferredSeatsSize, request.numWantedSeats);
-  if(requestedSeatsResult != NULL) { // Seats are available
-    bookRequestedSeats(args->seatList, requestedSeatsResult, request.numWantedSeats, request.pid);
+  // ver disponibilidade de lugares
+  // se disponivel, alocar
+  Seat *requestedSeatsResult = getRequestedSeats(
+      args->seatList, request.preferredSeats, preferredSeatsSize,
+      request.numWantedSeats, request.pid);
+  if (requestedSeatsResult != NULL) { // Seats are available
+    args->nOcuppiedSeats += request.numWantedSeats;
   } else {
-    //se nao, UNLOCK DE ALLOCATION MUTEX
+
   }
-
-
 }
 
-FILE* initRequestsFifo() {
+FILE *initRequestsFifo() {
   if (mkfifo(SERVER_FIFO, 0660) == -1) {
     perror("Error making the server's fifo");
     exit(FIFO_ERROR_EXIT);
   }
 
   int fdServerFifo = open(SERVER_FIFO, O_RDONLY);
-  if(fdServerFifo == -1) {
+  if (fdServerFifo == -1) {
     perror("Error opening server FIFO.");
     exit(FIFO_ERROR_EXIT);
   }
 
-  FILE* fServerFifo = fdopen(fdServerFifo, "r");
+  FILE *fServerFifo = fdopen(fdServerFifo, "r");
 
   return fServerFifo;
 }
 
+int isSeatFree(Seat *seats, int seatNum) { return (seats[seatNum] == 0); }
 
-int isSeatFree(Seat* seats, int seatNum) {
-  return (seats[seatNum] == 0);
-}
-
-Seat* getRequestedSeats(Seat* seatList, Seat* requestedSeats, int nRequestedSeats, int minSeats) {
-  Seat* requestResult = (Seat*) malloc(minSeats * sizeof(Seat));
+Seat *getRequestedSeats(Seat *seatList, Seat *requestedSeats,
+                        int nRequestedSeats, int minSeats, int pid) {
+  // TODO Free
+  int *requestResult = (int *)malloc(minSeats * sizeof(int));
   int reservedSeatsCounter = 0;
 
   int i;
-  for(i = 0; i < nRequestedSeats; i++ ) {
+  for (i = 0; i < nRequestedSeats; i++) {
 
-    if(reservedSeatsCounter == minSeats) {
+    if (reservedSeatsCounter == minSeats) {
       break;
     }
-
-    if(isSeatFree(seatList, requestedSeats[i]) ) {
-      requestResult[reservedSeatsCounter] = requestedSeats[i];
-      reservedSeatsCounter++;
-    }
+    sem = get_seat_semaphore(requestedSeats[i]);
+    sem_wait(sem);
+    allocSeat(seatList, requestedSeats[i], pid, &reservedSeatsCounter, requestResult);
+    sem_post(sem);
+    sem_close(sem);
   }
 
-  if(reservedSeatsCounter < minSeats) {
+  if (reservedSeatsCounter < minSeats) {
+    freeSeats(seatList, reservedSeatsCounter, requestResult);
     return NULL;
   } else {
     return requestResult;
   }
-
-
 }
 
-void bookSeat(Seat* seats, int seatNum, int clientId) {
+void bookSeat(Seat *seats, int seatNum, int clientId) {
   seats[seatNum] = clientId;
 }
 
-void bookRequestedSeats(Seat* seats, Seat* requestedSeats, int nRequestSeats, int clientId) {
-  int i;
-  for(i = 0; i < nRequestSeats; i++) {
-    bookSeat(seats, requestedSeats[i], clientId);
+void allocSeat(Seat* seatist, Seat seatToAlloc, int pid, int* reservedSeatsCounter, Seat* requestResult) {
+  if (isSeatFree(seatList, seatToAlloc)) {
+    requestResult[reservedSeatsCounter] = requestedSeats[i];
+    bookSeat(seatList, seatToAlloc, pid);
+    (*reservedSeatsCounter)++;
+  }
+}
+
+sem_t* get_seat_semaphore(Seat seat) {
+  sem_t* sem;
+  char buffer = NULL;
+  asprintf(&buffer,"/sem%d", seat);
+  if((sem = sem_open(buffer, O_CREAT)) == SEM_FAILED){
+    perror("Opennig semaphore error");
+    exit(SEMAPHORE_ERROR);
+  }
+  free(sem);
+  return sem;
+}
+
+void freeSeat(Seat* seats, int seatNum) {
+    seats[seatNum] = 0;
+}
+
+void freeSeats(Seat* seats, Seat* requestResult, int sizeOfRequestResult){
+  for (int i = 0; i < count; i++) {
+    sem_t* sem = get_seat_semaphore(requestedSeats[i]);
+    sem_wait(sem);
+    freeSeat(seats, requestResult[i]);
+    sem_post(sem);
+    sem_close(sem);
   }
 }

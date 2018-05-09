@@ -30,7 +30,7 @@ void activateSignalHandler();
 
 
 int isSeatFree(Seat* seats, int seatNum);
-Seat* getRequestedSeats(Seat* seatList, Seat* requestedSeats, int nRequestedSeats, int minSeats);
+Seat* getRequestedSeats(Seat* seatList, Seat* requestedSeats, int nRequestedSeats, int minSeats, int pid);
 
 void bookSeat(Seat* seats, int seatNum, int clientId);
 void bookRequestedSeats(Seat* seats, Seat* requestedSeats, int nRequestSeats, int clientId);

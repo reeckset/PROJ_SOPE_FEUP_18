@@ -19,4 +19,6 @@ void initTimer(Input inputs, int pid) {
   if(wait(&status) != pid) {
     exit(FORK_WAIT_ERROR);
   };
+
+  //TODO unlink all semaphore
 }
