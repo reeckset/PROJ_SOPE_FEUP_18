@@ -26,7 +26,7 @@ int main(int argc, char const *argv[]) {
   } else if(pid == 0) { // child
     initServer(inputs);
   } else { // parent
-    initTimer(inputs);
+    initTimer(inputs, pid);
   }
 
   return 0;

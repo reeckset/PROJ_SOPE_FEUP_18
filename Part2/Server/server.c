@@ -1,6 +1,8 @@
+#include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -17,7 +19,7 @@ void closeTicketOfficesSignalHandler(int signo) { g_tickets_are_open = false; }
 
 void initServer(Input inputs) {
 
-  FILE *fdServerFifo = initRequestsFifo();
+  int fdServerFifo = initRequestsFifo();
 
   TicketOfficeArgs *ticketOfficeArgs =
       (TicketOfficeArgs *)malloc(sizeof(TicketOfficeArgs));
@@ -30,29 +32,53 @@ void initServer(Input inputs) {
   ticketOfficeArgs->fdServerFifo = fdServerFifo;
 
   activateSignalHandler();
+  // TODO ERASE
+  for (int i = 0; i < inputs.nSeats; i++) {
+    char *buffer = NULL;
+    asprintf(&buffer, "/sem%d", i);
+    if (sem_unlink(buffer) != 0) {
+      if (errno != ENOENT) {
+        perror(buffer);
+        exit(SEMAPHORE_ERROR);
+      }
+    }
+    free(buffer);
+  }
 
   pthread_t *tids =
       (pthread_t *)malloc(inputs.nTicketOffices * sizeof(pthread_t));
 
   int i;
   for (i = 0; i < inputs.nTicketOffices; i++) {
+    printf("Created %d\n", i);
     pthread_create(&tids[i], NULL, initTicketOffice, (void *)ticketOfficeArgs);
+    printf("Thread %lu\n", tids[i]);
   }
 
   void *retVal;
   for (int i = 0; i < inputs.nTicketOffices; i++) {
     pthread_join(tids[i], &retVal);
+    printf("Thread joined %lu\n", tids[i]);
   }
-
   free(seatList);
-  if (fclose(fdServerFifo) != 0) {
+  if (close(fdServerFifo) != 0) {
     perror("Close fifo error");
     exit(FIFO_ERROR_EXIT);
   } else {
     unlink(SERVER_FIFO);
   }
 
-  // TODO unlink semaphores
+  for (int i = 0; i < inputs.nSeats; i++) {
+    char *buffer = NULL;
+    asprintf(&buffer, "/sem%d", i);
+    if (sem_unlink(buffer) != 0) {
+      if (errno != ENOENT) {
+        perror(buffer);
+        exit(SEMAPHORE_ERROR);
+      }
+    }
+    free(buffer);
+  }
 }
 
 void *initTicketOffice(void *ticketOfficeArgs) {
@@ -80,14 +106,58 @@ void processClientMsg(TicketOfficeArgs *args) {
 
   pthread_mutex_lock(&readRequestsMutex);
 
-  // TODO LER MSG (VER ESTRUTURA DA MSG (PROTOCOLO DE COMUNICAÇAO))
   Request request;
   char selectedSeats[MAX_SEATS_STRING_SIZE];
-  // tentar ler o fifo requests (ver se tem cenas para ler)
-  // se tiver, processar msg -> atualizando args (altera Seats)
-  fscanf(args->fdServerFifo, "%d %d %d %[^\n]\n", &request.pid,
-         &request.numWantedSeats, &request.numPreferredSeats, selectedSeats);
+  printf("%lu waiting\n", pthread_self());
+  /*
+  int ret = fscanf(args->fdServerFifo, "%d %d %d %[^\n]", &request.pid,
+             &request.numWantedSeats, &request.numPreferredSeats,
+             selectedSeats);
 
+  if (ret != 4 ) {
+    //printf("%d\n", ret);
+    pthread_mutex_unlock(&readRequestsMutex);
+    return;
+  } else if (ret == 4){
+    printf("%d\n", ret);
+  } else if (ret == 0){
+    printf("%d\n", ret);
+  }*/
+
+  int n = 0;
+  char c;
+  char *oldBuffer = NULL;
+  char *buffer = NULL;
+
+  while ((n = read(args->fdServerFifo, &c, sizeof(c))) == 1 && c != '\n') {
+
+    oldBuffer = buffer;
+    buffer = NULL;
+    if(oldBuffer == NULL) {
+      asprintf(&buffer, "%c", c);
+    } else {
+      asprintf(&buffer, "%s%c", oldBuffer, c);
+    }
+
+    free(oldBuffer);
+
+  }
+
+
+  if (n == 0 || n == -1) {
+    pthread_mutex_unlock(&readRequestsMutex);
+    return;
+  }
+
+  int ret = sscanf(buffer, "%d %d %d %[^\n]", &request.pid,
+             &request.numWantedSeats, &request.numPreferredSeats,
+             selectedSeats);
+
+
+  free(buffer);
+
+  printf("Received %lu: %d %d %d %s\n", pthread_self(), request.pid,
+         request.numWantedSeats, request.numPreferredSeats, selectedSeats);
   pthread_mutex_unlock(&readRequestsMutex);
 
   // parse string selectedSeats to seat array
@@ -97,26 +167,29 @@ void processClientMsg(TicketOfficeArgs *args) {
 
   // ver disponibilidade de lugares
   // se disponivel, alocar
-  int *requestedSeatsResult = getRequestedSeats(
-      args->seatList, request.preferredSeats, preferredSeatsSize,
-      request.numWantedSeats, request.pid);
-  if (requestedSeatsResult != NULL) { // Seats are available
-    args->nOcuppiedSeats += request.numWantedSeats;
-    // TODO server response
-    free(requestedSeatsResult);
-  } else {
-    // TODO server response
-  }
-  free(request.preferredSeats);
+  // int *requestedSeatsResult = getRequestedSeats(
+  //     args->seatList, request.preferredSeats, preferredSeatsSize,
+  //     request.numWantedSeats, request.pid);
+  //
+  // if (requestedSeatsResult != NULL) { // Seats are available
+  //   args->nOcuppiedSeats += request.numWantedSeats;
+  //
+  //   // TODO server response
+  //   free(requestedSeatsResult);
+  // } else {
+  //   // TODO server response
+  // }
+  // free(request.preferredSeats);
+  printf("Finished Request\n");
 }
 
-FILE *initRequestsFifo() {
+int initRequestsFifo() {
   if (mkfifo(SERVER_FIFO, 0660) == -1) {
     perror("Error making the server's fifo");
     exit(FIFO_ERROR_EXIT);
   }
 
-  int fdServerFifo = open(SERVER_FIFO, O_RDONLY);
+  int fdServerFifo = open(SERVER_FIFO, O_RDWR);
   if (fdServerFifo == -1) {
     perror("Error opening server FIFO.");
     exit(FIFO_ERROR_EXIT);
@@ -124,7 +197,7 @@ FILE *initRequestsFifo() {
 
   FILE *fServerFifo = fdopen(fdServerFifo, "r");
 
-  return fServerFifo;
+  return fdServerFifo;
 }
 
 int isSeatFree(Seat *seats, int seatNum) { return (seats[seatNum] == 0); }
@@ -141,6 +214,7 @@ int *getRequestedSeats(Seat *seatList, int *requestedSeats, int nRequestedSeats,
     if (reservedSeatsCounter == minSeats) {
       break;
     }
+
     sem = get_seat_semaphore(requestedSeats[i]);
     sem_wait(sem);
     allocSeat(seatList, requestedSeats[i], pid, &reservedSeatsCounter,
@@ -170,15 +244,15 @@ void allocSeat(Seat *seatList, Seat seatToAlloc, int pid,
   }
 }
 
-sem_t *get_seat_semaphore(Seat seat) {
+sem_t *get_seat_semaphore(int seat) {
   sem_t *sem;
   char *buffer = NULL;
   asprintf(&buffer, "/sem%d", seat);
-  if ((sem = sem_open(buffer, O_CREAT)) == SEM_FAILED) {
+  if ((sem = sem_open(buffer, O_CREAT, S_IWOTH, 1)) == SEM_FAILED) {
     perror("Opennig semaphore error");
     exit(SEMAPHORE_ERROR);
   }
-  free(sem);
+  free(buffer);
   return sem;
 }
 

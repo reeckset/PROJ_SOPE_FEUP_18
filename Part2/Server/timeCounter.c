@@ -7,7 +7,7 @@
 
 void initTimer(Input inputs, int pid) {
 
-  int remainingTime = MAX_OPEN_TIME;
+  int remainingTime = inputs.openTime;
 
   //Hold for MAX_OPEN_TIME
   while((remainingTime = sleep(remainingTime)));
@@ -20,5 +20,4 @@ void initTimer(Input inputs, int pid) {
     exit(FORK_WAIT_ERROR);
   };
 
-  //TODO unlink all semaphore
 }

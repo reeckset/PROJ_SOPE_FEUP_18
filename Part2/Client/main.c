@@ -27,11 +27,9 @@ void printfIntArray(int *array, int size) {
 
 void gracefulShutdownOnTimeout(int timeout) {
   int sleepTime = sleep(timeout);
-  if (sleepTime != 0) {
-    kill(0, SIGKILL);
-  }
+  kill(0, SIGKILL);
   // TODO BEFORE KILLING CHILD, CHECK IF FIFO IS EMPTY TO AVOID INFORMATION LOSS
-  // EITHER DO FSEEK OR USE MUTEX WITH SERVER
+  // EITHER DO FSEEK
 }
 
 char *createResponseFifo() {
@@ -48,13 +46,11 @@ void writeRequestToFifo(const char *numWantedSeats, int numPreferredSeats,
                         const char *preferredSeats) {
   int fdResquest = open(SERVER_FIFO, O_WRONLY);
   char *sstream = NULL;
-  asprintf(&sstream, "%d %s %d %s", getpid(), numWantedSeats, numPreferredSeats,
-           preferredSeats);
+  asprintf(&sstream, "%d %s %d %s\n", getpid(), numWantedSeats,
+           numPreferredSeats, preferredSeats);
 
   write(fdResquest, sstream, strlen(sstream) + 1);
   free(sstream);
-
-  // TODO FIM DA SECCAO CRITICA
 }
 
 void readAndPrintReservedSeats(int fd) {

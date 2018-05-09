@@ -24,7 +24,7 @@ void checkArgumentAmount(int argc, int expected, const char *usage) {
 }
 
 Input verifiyInput(int argc, char const *argv[]) {
-  checkArgumentAmount(argc, 3, "Usage:  server <num_row_seats> <num_ticket_offices> <open_time>");
+  checkArgumentAmount(argc, 4, "server <num_row_seats> <num_ticket_offices> <open_time>");
 
   Input returnInputs;
   returnInputs.nSeats = validateIntArgument(argv[1], "Invalid number for <num_row_seats>", MAX_ROOM_SEATS, "max_row_seats", "MAX_ROOM_SEATS");

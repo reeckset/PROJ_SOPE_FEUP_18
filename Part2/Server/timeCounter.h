@@ -3,6 +3,6 @@
 
 #include "utilities.h"
 
-void initTimer(Input inputs);
+void initTimer(Input inputs, int pid);
 
 #endif

@@ -11,7 +11,7 @@ typedef struct {
   Seat *seatList;
   int nSeats;
   int nOcuppiedSeats;
-  FILE *fdServerFifo;
+  int fdServerFifo;
 } TicketOfficeArgs;
 
 typedef struct {
@@ -24,7 +24,7 @@ typedef struct {
 void initServer(Input inputs);
 
 void *initTicketOffice(void *ticketOfficeArgs);
-FILE *initRequestsFifo();
+int initRequestsFifo();
 
 void processClientMsg(TicketOfficeArgs *args);
 void activateSignalHandler();
@@ -43,6 +43,6 @@ void freeSeats(Seat *seats, Seat *requestResult, int sizeOfRequestResult);
 void allocSeat(Seat *seatList, Seat seatToAlloc, int pid,
                int *reservedSeatsCounter, Seat *requestResult);
 
-sem_t *get_seat_semaphore(Seat seat);
+sem_t *get_seat_semaphore(int seat);
 
 #endif
