@@ -22,6 +22,7 @@ char *createResponseFifo() {
 
 void writeRequestToFifo(const char *numWantedSeats, int numPreferredSeats,
                         const char *preferredSeats) {
+  //TODO check open return
   int fdResquest = open(SERVER_FIFO, O_WRONLY);
   char *sstream = NULL;
   asprintf(&sstream, "%d %s %d %s\n", getpid(), numWantedSeats,
@@ -74,5 +75,6 @@ void processReponse(char *responseFifoName) {
     exit(FIFO_ERROR_EXIT);
   }
   readFromServer(fdResponse);
+  unlink(responseFifoName);
   kill(getppid(),SIGKILL);
 }

@@ -7,6 +7,7 @@
 #define FORK_ERROR_EXIT 3
 #define FIFO_ERROR_EXIT 4
 #define READING_FIFO_ERROR 5
+#define SEMAPHORE_ERROR 6
 
 #define SERVER_FIFO "/tmp/requests"
 

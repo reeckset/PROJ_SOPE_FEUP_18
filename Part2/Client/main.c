@@ -25,7 +25,7 @@ void attemptSend(const char **argv, int timeout) {
   if (pid == 0) { // filho
     processReponse(responseFifoName);
   } else { // pai
-    gracefulShutdownOnTimeout(timeout);
+    gracefulShutdownOnTimeout(timeout, pid);
   }
 }
 

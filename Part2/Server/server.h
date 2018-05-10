@@ -51,7 +51,10 @@ void allocSeat(Seat *seatList, Seat seatToAlloc, int pid,
                int *reservedSeatsCounter, Seat *requestResult);
 
 sem_t *get_seat_semaphore(int seat);
+sem_t *get_client_fifo_semaphore(int pid);
 
 void verifyRequestErrors(Request* request, TicketOfficeArgs* args, int preferredSeatsSize);
+
+void sendResponse(Response response, int pid, TicketOfficeArgs *args);
 
 #endif

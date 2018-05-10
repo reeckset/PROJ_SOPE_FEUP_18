@@ -1,7 +1,7 @@
 TARGET = client
 LIBS = -lm
 CC = gcc
-CFLAGS = -g -Wall -D_GNU_SOURCE
+CFLAGS = -g -Wall -D_GNU_SOURCE -pthread
 
 .PHONY: default all clean
 
@@ -17,7 +17,7 @@ HEADERS = $(wildcard *.h)
 .PRECIOUS: $(TARGET) $(OBJECTS)
 
 $(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) -Wall $(LIBS) -o $@
+	$(CC) $(OBJECTS) $(CFLAGS) -Wall $(LIBS) -o $@
 
 clean:
 	-rm -f *.o
