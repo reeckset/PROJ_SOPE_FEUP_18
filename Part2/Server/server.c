@@ -15,6 +15,7 @@
 
 bool g_tickets_are_open = true;
 pthread_mutex_t readRequestsMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t updateOccupiedMutex = PTHREAD_MUTEX_INITIALIZER;
 
 void closeTicketOfficesSignalHandler(int signo) { g_tickets_are_open = false;
   int fdServerFifo = open(SERVER_FIFO, O_WRONLY);
@@ -32,11 +33,11 @@ void initServer(Input inputs) {
   TicketOfficeArgs *ticketOfficeArgs =
       (TicketOfficeArgs *)malloc(sizeof(TicketOfficeArgs));
 
-  Seat *seatList = (Seat *)calloc(inputs.nSeats, sizeof(Seat));
+  Seat *seatList = (Seat *)calloc(inputs.nSeats + 1, sizeof(Seat));
 
   ticketOfficeArgs->seatList = seatList;
   ticketOfficeArgs->nSeats = inputs.nSeats;
-  ticketOfficeArgs->nOcuppiedSeats = 0;
+  ticketOfficeArgs->nOccupiedSeats = 0;
   ticketOfficeArgs->fdServerFifo = fdServerFifo;
 
   activateSignalHandler();
@@ -158,23 +159,33 @@ void sendResponse(Response response, int pid) {
 
 void handleRequest(TicketOfficeArgs *args, Request request,
                    int preferredSeatsSize) {
+  Response response;
+  if(request.error) {
+    response.returnCode = request.error;
+    sendResponse(response, request.pid);
+    return;
+  }
+
   int *requestedSeatsResult = getRequestedSeats(
       args->seatList, request.preferredSeats, preferredSeatsSize,
       request.numWantedSeats, request.pid);
 
-  Response response;
-  if (requestedSeatsResult != NULL) { // Seats are available
-    args->nOcuppiedSeats += request.numWantedSeats;
-    response.returnCode = 0;
+  if(requestedSeatsResult == NULL) {
+    request.error = NAV;
+  } else { // Seats are available
+    pthread_mutex_lock(&updateOccupiedMutex);
+    args->nOccupiedSeats += request.numWantedSeats;
+    pthread_mutex_unlock(&updateOccupiedMutex);
+  }
+
+    response.returnCode = request.error;
     response.nAllocatedSeats = request.numWantedSeats;
     response.seats = requestedSeatsResult;
     sendResponse(response, request.pid);
-    free(requestedSeatsResult);
-  } else {
-    // TODO
-    response.returnCode = -1;
-    sendResponse(response, request.pid);
-  }
+
+    if(!request.error){
+      free(requestedSeatsResult);
+    }
 }
 
 void processClientMsg(TicketOfficeArgs *args) {
@@ -185,6 +196,7 @@ void processClientMsg(TicketOfficeArgs *args) {
     return;
   }
   Request request;
+  request.error = AYE;
   char selectedSeats[MAX_SEATS_STRING_SIZE];
 
   char *requestMsg = getRequest(args->fdServerFifo);
@@ -193,6 +205,7 @@ void processClientMsg(TicketOfficeArgs *args) {
     pthread_mutex_unlock(&readRequestsMutex);
     return;
   }
+  pthread_mutex_unlock(&readRequestsMutex);
 
   printf("%p\n",requestMsg);
   int ret = sscanf(requestMsg, "%d %d %d %[^\n]", &request.pid,
@@ -202,6 +215,8 @@ void processClientMsg(TicketOfficeArgs *args) {
     printf("sccanf return: %d\n", ret);
     perror("Read message error");
     free(requestMsg);
+    request.error = ERR;
+    handleRequest(args, request, 0);
     return;
   }
 
@@ -209,11 +224,18 @@ void processClientMsg(TicketOfficeArgs *args) {
 
   printf("Received %lu: %d %d %d %s\n", pthread_self(), request.pid,
          request.numWantedSeats, request.numPreferredSeats, selectedSeats);
-  pthread_mutex_unlock(&readRequestsMutex);
 
   int preferredSeatsSize;
+
+  //TODO dentro da stringtointarray verificar identificadores negativos
   request.preferredSeats = stringToIntArray(
-      selectedSeats, "Parsing Desired Seat List", &preferredSeatsSize);
+      selectedSeats, "Parsing Desired Seat List", &preferredSeatsSize, &request.error);
+
+  verifyRequestErrors(&request, args, preferredSeatsSize);
+
+
+
+
 
   handleRequest(args, request, preferredSeatsSize);
   free(request.preferredSeats);
@@ -233,6 +255,24 @@ int initRequestsFifo() {
   }
 
   return fdServerFifo;
+}
+
+void verifyRequestErrors(Request* request, TicketOfficeArgs* args, int preferredSeatsSize) {
+  if(request->numWantedSeats > MAX_CLI_SEATS) {
+    request->error = MAX;
+    return;
+  }
+  if(preferredSeatsSize < request->numWantedSeats) {
+    request->error = NST;
+    return;
+  }
+  pthread_mutex_lock(&updateOccupiedMutex);
+  if((args->nSeats - args->nOccupiedSeats) < request->numWantedSeats) {
+    request->error = FUL;
+    pthread_mutex_unlock(&updateOccupiedMutex);
+    return;
+  }
+  pthread_mutex_unlock(&updateOccupiedMutex);
 }
 
 int isSeatFree(Seat *seats, int seatNum) { return (seats[seatNum] == 0); }

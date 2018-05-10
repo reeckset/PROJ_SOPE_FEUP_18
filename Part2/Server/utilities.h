@@ -17,7 +17,7 @@ int validateIntArgument(const char * arg, const char * errorMsg, int max_val, co
 
 int getIntAmount(const char *str);
 
-int *stringToIntArray(const char *str, const char *errorMsg, int* size);
+int *stringToIntArray(const char *str, const char *errorMsg, int* size, int* returnVal);
 
 char *intArrayToString(int* array, int size);
 #endif

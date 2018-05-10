@@ -10,7 +10,7 @@ typedef int Seat;
 typedef struct {
   Seat *seatList;
   int nSeats;
-  int nOcuppiedSeats;
+  int nOccupiedSeats;
   int fdServerFifo;
 } TicketOfficeArgs;
 
@@ -19,6 +19,7 @@ typedef struct {
   int numWantedSeats;
   int numPreferredSeats;
   int *preferredSeats;
+  int error;
 } Request;
 
 typedef struct {
@@ -50,5 +51,7 @@ void allocSeat(Seat *seatList, Seat seatToAlloc, int pid,
                int *reservedSeatsCounter, Seat *requestResult);
 
 sem_t *get_seat_semaphore(int seat);
+
+void verifyRequestErrors(Request* request, TicketOfficeArgs* args, int preferredSeatsSize);
 
 #endif

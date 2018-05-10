@@ -64,13 +64,16 @@ int getIntAmount(const char *str) {
   return total;
 }
 
-int *stringToIntArray(const char *str, const char *errorMsg, int *size) {
+int *stringToIntArray(const char *str, const char *errorMsg, int *size, int* returnVal) {
   *size = getIntAmount(str);
   char *strCopy = strdup(str);
   char *currStrPtr = strCopy;
   int *result = (int *)malloc(*size * sizeof(int));
   int counter = 0;
   while (sscanf(currStrPtr, "%d", result + counter) == 1 && counter < *size) {
+    if(result[counter] <= 0) { // check for negative values
+      break;
+    }
     counter++;
     while (!isdigit(*currStrPtr)) {
       currStrPtr++;
@@ -81,7 +84,10 @@ int *stringToIntArray(const char *str, const char *errorMsg, int *size) {
   }
   if (*size != counter) {
     printf("Invalid conversion from string to int array: %s\n", errorMsg);
-    exit(INVALID_STR2INT_ARRAY_EXIT);
+    *returnVal = IID;
+    free(strCopy);
+    free(result);
+    return NULL;
   }
   free(strCopy);
   return result;
