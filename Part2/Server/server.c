@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "macros.h"
 #include "server.h"
@@ -15,7 +16,14 @@
 bool g_tickets_are_open = true;
 pthread_mutex_t readRequestsMutex = PTHREAD_MUTEX_INITIALIZER;
 
-void closeTicketOfficesSignalHandler(int signo) { g_tickets_are_open = false; }
+void closeTicketOfficesSignalHandler(int signo) { g_tickets_are_open = false;
+  int fdServerFifo = open(SERVER_FIFO, O_WRONLY);
+  if (fdServerFifo == -1) {
+    perror("Error opening server FIFO.");
+    exit(FIFO_ERROR_EXIT);
+  }
+  write(fdServerFifo, "*\n", 3);
+}
 
 void initServer(Input inputs) {
 
@@ -102,84 +110,113 @@ void activateSignalHandler() {
   }
 }
 
-void processClientMsg(TicketOfficeArgs *args) {
-
-  pthread_mutex_lock(&readRequestsMutex);
-
-  Request request;
-  char selectedSeats[MAX_SEATS_STRING_SIZE];
-  printf("%lu waiting\n", pthread_self());
-  /*
-  int ret = fscanf(args->fdServerFifo, "%d %d %d %[^\n]", &request.pid,
-             &request.numWantedSeats, &request.numPreferredSeats,
-             selectedSeats);
-
-  if (ret != 4 ) {
-    //printf("%d\n", ret);
-    pthread_mutex_unlock(&readRequestsMutex);
-    return;
-  } else if (ret == 4){
-    printf("%d\n", ret);
-  } else if (ret == 0){
-    printf("%d\n", ret);
-  }*/
-
+char *getRequest(int fdServerFifo) {
   int n = 0;
   char c;
   char *oldBuffer = NULL;
   char *buffer = NULL;
-
-  while ((n = read(args->fdServerFifo, &c, sizeof(c))) == 1 && c != '\n') {
+  printf("Reading: %lu\n", pthread_self());
+  while ((n = read(fdServerFifo, &c, sizeof(c))) == 1 && c != '\n') {
 
     oldBuffer = buffer;
     buffer = NULL;
-    if(oldBuffer == NULL) {
+    if (oldBuffer == NULL) {
       asprintf(&buffer, "%c", c);
     } else {
       asprintf(&buffer, "%s%c", oldBuffer, c);
     }
 
     free(oldBuffer);
-
   }
 
+  return buffer;
+}
 
-  if (n == 0 || n == -1) {
+int openResponseFifo(int pid) {
+  char *fifoName = NULL;
+  asprintf(&fifoName, "/tmp/ans%d", pid);
+  int fdResponse = open(fifoName, O_WRONLY);
+  if (fdResponse == -1) {
+    perror("Opening response FIFO");
+  }
+  return fdResponse;
+}
+
+void sendResponse(Response response, int pid) {
+  int fdResponse = openResponseFifo(pid);
+  if (fdResponse == -1) {
+    return;
+  }
+  write(fdResponse, &response.returnCode, sizeof(int));
+  if (response.returnCode == 0) {
+    write(fdResponse, &response.nAllocatedSeats, sizeof(int));
+    for (int i = 0; i < response.nAllocatedSeats; i++) {
+      write(fdResponse, &response.seats[i], sizeof(int));
+    }
+  }
+}
+
+void handleRequest(TicketOfficeArgs *args, Request request,
+                   int preferredSeatsSize) {
+  int *requestedSeatsResult = getRequestedSeats(
+      args->seatList, request.preferredSeats, preferredSeatsSize,
+      request.numWantedSeats, request.pid);
+
+  Response response;
+  if (requestedSeatsResult != NULL) { // Seats are available
+    args->nOcuppiedSeats += request.numWantedSeats;
+    response.returnCode = 0;
+    response.nAllocatedSeats = request.numWantedSeats;
+    response.seats = requestedSeatsResult;
+    sendResponse(response, request.pid);
+    free(requestedSeatsResult);
+  } else {
+    // TODO
+    response.returnCode = -1;
+    sendResponse(response, request.pid);
+  }
+}
+
+void processClientMsg(TicketOfficeArgs *args) {
+
+  pthread_mutex_lock(&readRequestsMutex);
+  if(!g_tickets_are_open) {
+    pthread_mutex_unlock(&readRequestsMutex);
+    return;
+  }
+  Request request;
+  char selectedSeats[MAX_SEATS_STRING_SIZE];
+
+  char *requestMsg = getRequest(args->fdServerFifo);
+
+  if (requestMsg == NULL || strcmp(requestMsg, "*") == 0) {
     pthread_mutex_unlock(&readRequestsMutex);
     return;
   }
 
-  int ret = sscanf(buffer, "%d %d %d %[^\n]", &request.pid,
-             &request.numWantedSeats, &request.numPreferredSeats,
-             selectedSeats);
+  printf("%p\n",requestMsg);
+  int ret = sscanf(requestMsg, "%d %d %d %[^\n]", &request.pid,
+                   &request.numWantedSeats, &request.numPreferredSeats,
+                   selectedSeats);
+  if (ret != 4) {
+    printf("sccanf return: %d\n", ret);
+    perror("Read message error");
+    free(requestMsg);
+    return;
+  }
 
-
-  free(buffer);
+  free(requestMsg);
 
   printf("Received %lu: %d %d %d %s\n", pthread_self(), request.pid,
          request.numWantedSeats, request.numPreferredSeats, selectedSeats);
   pthread_mutex_unlock(&readRequestsMutex);
 
-  // parse string selectedSeats to seat array
   int preferredSeatsSize;
   request.preferredSeats = stringToIntArray(
       selectedSeats, "Parsing Desired Seat List", &preferredSeatsSize);
 
-  // ver disponibilidade de lugares
-  // se disponivel, alocar
-  // int *requestedSeatsResult = getRequestedSeats(
-  //     args->seatList, request.preferredSeats, preferredSeatsSize,
-  //     request.numWantedSeats, request.pid);
-  //
-  // if (requestedSeatsResult != NULL) { // Seats are available
-  //   args->nOcuppiedSeats += request.numWantedSeats;
-  //
-  //   // TODO server response
-  //   free(requestedSeatsResult);
-  // } else {
-  //   // TODO server response
-  // }
-  // free(request.preferredSeats);
+  handleRequest(args, request, preferredSeatsSize);
+  free(request.preferredSeats);
   printf("Finished Request\n");
 }
 
@@ -194,8 +231,6 @@ int initRequestsFifo() {
     perror("Error opening server FIFO.");
     exit(FIFO_ERROR_EXIT);
   }
-
-  FILE *fServerFifo = fdopen(fdServerFifo, "r");
 
   return fdServerFifo;
 }
@@ -242,13 +277,14 @@ void allocSeat(Seat *seatList, Seat seatToAlloc, int pid,
     bookSeat(seatList, seatToAlloc, pid);
     (*reservedSeatsCounter)++;
   }
+  DELAY();
 }
 
 sem_t *get_seat_semaphore(int seat) {
   sem_t *sem;
   char *buffer = NULL;
   asprintf(&buffer, "/sem%d", seat);
-  if ((sem = sem_open(buffer, O_CREAT, S_IWOTH, 1)) == SEM_FAILED) {
+  if ((sem = sem_open(buffer, O_CREAT, 0666, 1)) == SEM_FAILED) {
     perror("Opennig semaphore error");
     exit(SEMAPHORE_ERROR);
   }

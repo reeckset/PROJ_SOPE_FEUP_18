@@ -9,4 +9,6 @@ int getIntAmount(const char *str);
 
 int *stringToIntArray(const char *str, const char *errorMsg, int* size);
 
+void printfIntArray(int *array, int size);
+
 #endif

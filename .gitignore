@@ -60,3 +60,7 @@ Mkfile.old
 dkms.conf
 
 log\.txt
+
+Part2/Client/client
+
+Part2/Server/server

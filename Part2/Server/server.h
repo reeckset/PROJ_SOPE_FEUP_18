@@ -21,6 +21,12 @@ typedef struct {
   int *preferredSeats;
 } Request;
 
+typedef struct {
+  int returnCode;
+  int nAllocatedSeats;
+  int* seats;
+} Response;
+
 void initServer(Input inputs);
 
 void *initTicketOffice(void *ticketOfficeArgs);

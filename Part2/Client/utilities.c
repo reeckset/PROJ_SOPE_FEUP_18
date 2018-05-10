@@ -64,3 +64,12 @@ int *stringToIntArray(const char *str, const char *errorMsg, int *size) {
   free(strCopy);
   return result;
 }
+
+
+void printfIntArray(int *array, int size) {
+  int i;
+  for (i = 0; i < size; i++) {
+    printf("%d ", array[i]);
+  }
+  printf("\n");
+}

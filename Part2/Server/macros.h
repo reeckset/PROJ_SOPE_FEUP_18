@@ -1,6 +1,6 @@
 #ifndef MACROS_H
 #define MACROS_H
-#endif
+
 
 #define SUCCESSFULL_EXIT 0
 #define ILLEGAL_ARG_EXIT 1
@@ -22,3 +22,15 @@
 
 #define min(a,b) ((a<b) ? a : b)
 #define MAX_SEATS_STRING_SIZE 4 * MAX_CLI_SEATS + MAX_CLI_SEATS - 1 //4 chars * 99 + 98 spaces
+
+#define DELAY() usleep(1000000)
+
+#define AYE  0
+#define MAX -1
+#define NST -2
+#define IID -3
+#define ERR -4
+#define NAV -5
+#define FUL -6
+
+#endif
