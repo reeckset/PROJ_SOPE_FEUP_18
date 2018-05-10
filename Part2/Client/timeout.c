@@ -25,7 +25,7 @@ void readResponse(int fdResponse) {
 }
 
 void gracefulShutdownOnTimeout(int timeout, int pid) {
-  int sleepTime = usleep(timeout);
+  int sleepTime = usleep(timeout * 1000);
   printf("Missing time: %d\n", sleepTime);
   kill(pid, SIGKILL);
 
