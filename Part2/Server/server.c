@@ -1,7 +1,9 @@
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,6 +19,8 @@ bool g_tickets_are_open = true;
 pthread_mutex_t ticketOfficeMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t readRequestsMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t updateOccupiedMutex = PTHREAD_MUTEX_INITIALIZER;
+int nDigitsOfSeats;
+int nCharactersOfPreferredSeats;
 
 void closeTicketOfficesSignalHandler(int signo) {
   pthread_mutex_lock(&ticketOfficeMutex);
@@ -30,19 +34,26 @@ void closeTicketOfficesSignalHandler(int signo) {
   write(fdServerFifo, "*\n", 3);
 }
 
+void getNumberOfDigitsOfSeats(int nSeats) {
+  int c = 0;
+  int lastResult = nSeats;
+  while (lastResult >= 1) {
+    lastResult /= 10;
+    c++;
+  }
+  nDigitsOfSeats = c;
+  nCharactersOfPreferredSeats = (c + 1) * MAX_CLI_SEATS;
+}
+
 void initServer(Input inputs) {
+
+  getNumberOfDigitsOfSeats(inputs.nSeats);
 
   int fdServerFifo = initRequestsFifo();
 
-  TicketOfficeArgs *ticketOfficeArgs =
-      (TicketOfficeArgs *)malloc(sizeof(TicketOfficeArgs));
+  int fdLog = open("./slog.txt", O_WRONLY | O_CREAT, S_IROTH | S_IWOTH);
 
   Seat *seatList = (Seat *)calloc(inputs.nSeats + 1, sizeof(Seat));
-
-  ticketOfficeArgs->seatList = seatList;
-  ticketOfficeArgs->nSeats = inputs.nSeats;
-  ticketOfficeArgs->nOccupiedSeats = 0;
-  ticketOfficeArgs->fdServerFifo = fdServerFifo;
 
   activateSignalHandler();
   // TODO ERASE
@@ -64,15 +75,20 @@ void initServer(Input inputs) {
   int i;
   for (i = 0; i < inputs.nTicketOffices; i++) {
     printf("Created %d\n", i);
+    TicketOfficeArgs *ticketOfficeArgs =
+        createTicketOfficeArgs(i, inputs.nSeats, seatList, fdLog, fdServerFifo);
     pthread_create(&tids[i], NULL, initTicketOffice, (void *)ticketOfficeArgs);
+    writeToLog(fdLog, "%d-OPEN\n", i);
     printf("Thread %lu\n", tids[i]);
   }
 
   void *retVal;
   for (int i = 0; i < inputs.nTicketOffices; i++) {
     pthread_join(tids[i], &retVal);
+    writeToLog(fdLog, "%d-CLOSED\n", i);
     printf("Thread joined %lu\n", tids[i]);
   }
+  writeToLog(fdLog, "SERVER CLOSED\n");
   free(seatList);
   if (close(fdServerFifo) != 0) {
     perror("Close fifo error");
@@ -160,10 +176,9 @@ void sendResponse(Response response, int pid, TicketOfficeArgs *args) {
   sem_t *sem = get_client_fifo_semaphore(pid);
   sem_wait(sem);
 
-
   int fdResponse = openResponseFifo(pid);
   if (fdResponse == -1) {
-    if(response.returnCode == 0)
+    if (response.returnCode == 0)
       freeSeats(args->seatList, response.seats, response.nAllocatedSeats);
     return;
   }
@@ -181,10 +196,19 @@ void sendResponse(Response response, int pid, TicketOfficeArgs *args) {
 
 void handleRequest(TicketOfficeArgs *args, Request request,
                    int preferredSeatsSize) {
+
+  char *preferredSeats = intArrayToString(request.preferredSeats,
+                                          preferredSeatsSize, nDigitsOfSeats);
   Response response;
   if (request.error) {
     response.returnCode = request.error;
     sendResponse(response, request.pid, args);
+    char *errorCode = getErrorCode(request.error);
+    writeToLog(args->fdLog, "%d-%d-%d: %-*s- %s\n", args->id, request.pid,
+               request.numWantedSeats, nCharactersOfPreferredSeats,
+               preferredSeats, errorCode);
+    free(errorCode);
+    free(preferredSeats);
     return;
   }
 
@@ -194,6 +218,9 @@ void handleRequest(TicketOfficeArgs *args, Request request,
 
   if (requestedSeatsResult == NULL) {
     request.error = NAV;
+    writeToLog(args->fdLog, "%d-%d-%d: %-*s- %s\n", args->id, request.pid,
+               request.numWantedSeats, nCharactersOfPreferredSeats,
+               preferredSeats, "NAV");
   } else { // Seats are available
     pthread_mutex_lock(&updateOccupiedMutex);
     args->nOccupiedSeats += request.numWantedSeats;
@@ -203,7 +230,17 @@ void handleRequest(TicketOfficeArgs *args, Request request,
   response.returnCode = request.error;
   response.nAllocatedSeats = request.numWantedSeats;
   response.seats = requestedSeatsResult;
-  sendResponse(response, request.pid,args);
+  sendResponse(response, request.pid, args);
+
+  if (response.returnCode == 0) {
+    char *reservedSeats = intArrayToString(
+        requestedSeatsResult, response.nAllocatedSeats, nDigitsOfSeats);
+    writeToLog(args->fdLog, "%d-%d-%d: %-*s- %s\n", args->id, request.pid,
+               request.numWantedSeats, nCharactersOfPreferredSeats,
+               preferredSeats, reservedSeats);
+    free(reservedSeats);
+  }
+  free(preferredSeats);
 
   if (!request.error) {
     free(requestedSeatsResult);
@@ -248,7 +285,6 @@ void processClientMsg(TicketOfficeArgs *args) {
 
   printf("Received %lu: %d %d %d %s\n", pthread_self(), request.pid,
          request.numWantedSeats, request.numPreferredSeats, selectedSeats);
-
   int preferredSeatsSize;
 
   // TODO dentro da stringtointarray verificar identificadores negativos
@@ -260,6 +296,7 @@ void processClientMsg(TicketOfficeArgs *args) {
 
   handleRequest(args, request, preferredSeatsSize);
   free(request.preferredSeats);
+  free(args);
   printf("Finished Request\n");
 }
 
@@ -376,4 +413,45 @@ void freeSeats(Seat *seats, Seat *requestResult, int sizeOfRequestResult) {
     sem_post(sem);
     sem_close(sem);
   }
+}
+
+TicketOfficeArgs *createTicketOfficeArgs(int ticketOfficeNum, int nSeats,
+                                         Seat *seatList, int fdLog,
+                                         int fdServerFifo) {
+  TicketOfficeArgs *ticketOfficeArgs =
+      (TicketOfficeArgs *)malloc(sizeof(TicketOfficeArgs));
+
+  ticketOfficeArgs->seatList = seatList;
+  ticketOfficeArgs->nSeats = nSeats;
+  ticketOfficeArgs->nOccupiedSeats = 0;
+  ticketOfficeArgs->fdServerFifo = fdServerFifo;
+  ticketOfficeArgs->fdLog = fdLog;
+  ticketOfficeArgs->id = ticketOfficeNum;
+
+  return ticketOfficeArgs;
+}
+
+char *getErrorCode(int error) {
+  char *result = (char *)malloc(3);
+  switch (error) {
+  case -1:
+    sprintf(result, "MAX");
+    break;
+  case -2:
+    sprintf(result, "NST");
+    break;
+  case -3:
+    sprintf(result, "IID");
+    break;
+  case -4:
+    sprintf(result, "ERR");
+    break;
+  case -5:
+    sprintf(result, "NAV");
+    break;
+  case -6:
+    sprintf(result, "FUL");
+    break;
+  }
+  return result;
 }

@@ -13,7 +13,7 @@
 #define SERVER_FIFO "/tmp/requests"
 
 #define MAX_ROOM_SEATS 9999
-#define MAX_CLI_SEATS 99
+#define MAX_CLI_SEATS 6
 #define MAX_OPEN_TIME 300
 #define MAX_TICKET_OFFICES 8
 #define WIDTH_PID 5

@@ -12,6 +12,8 @@ typedef struct {
   int nSeats;
   int nOccupiedSeats;
   int fdServerFifo;
+  int fdLog;
+  int id;
 } TicketOfficeArgs;
 
 typedef struct {
@@ -36,6 +38,9 @@ int initRequestsFifo();
 void processClientMsg(TicketOfficeArgs *args);
 void activateSignalHandler();
 
+void handleRequest(TicketOfficeArgs *args, Request request,
+                   int preferredSeatsSize);
+
 int isSeatFree(Seat *seats, int seatNum);
 int *getRequestedSeats(Seat *seatList, Seat *requestedSeats,
                        int nRequestedSeats, int minSeats, int pid);
@@ -56,5 +61,13 @@ sem_t *get_client_fifo_semaphore(int pid);
 void verifyRequestErrors(Request* request, TicketOfficeArgs* args, int preferredSeatsSize);
 
 void sendResponse(Response response, int pid, TicketOfficeArgs *args);
+
+void writeToLog(int fd, char *format, ...);
+
+char *getErrorCode(int error);
+
+TicketOfficeArgs *createTicketOfficeArgs(int ticketOfficeNum, int nSeats,
+                                         Seat *seatList, int fdLog,
+                                         int fdServerFifo);
 
 #endif

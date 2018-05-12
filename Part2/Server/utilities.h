@@ -19,5 +19,7 @@ int getIntAmount(const char *str);
 
 int *stringToIntArray(const char *str, const char *errorMsg, int* size, int* returnVal);
 
-char *intArrayToString(int* array, int size);
+char *intArrayToString(int* array, int size, int digitAmount);
+
+void writeToLog(int fd, char *format, ...);
 #endif
