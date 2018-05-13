@@ -1,7 +1,9 @@
 #include <ctype.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "macros.h"
 
@@ -65,11 +67,22 @@ int *stringToIntArray(const char *str, const char *errorMsg, int *size) {
   return result;
 }
 
-
 void printfIntArray(int *array, int size) {
   int i;
   for (i = 0; i < size; i++) {
     printf("%d ", array[i]);
   }
   printf("\n");
+}
+
+void writeToLog(int fd, char *format, ...) {
+  va_list valist;
+  va_start(valist, format);
+
+  char *logWriteBuffer;
+  if (vasprintf(&logWriteBuffer, format, valist) != -1) {
+    write(fd, logWriteBuffer, strlen(logWriteBuffer));
+    free(logWriteBuffer);
+  }
+  va_end(valist);
 }

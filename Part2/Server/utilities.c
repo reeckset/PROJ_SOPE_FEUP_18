@@ -119,14 +119,16 @@ char *intArrayToString(int *array, int size, int digitAmount) {
   return buffer;
 }
 
-void writeToLog(int fd, int nArgs, char *format, ...) {
+void writeToLog(int fd, char *format, ...) {
   va_list valist;
-  va_start(valist, nArgs);
+  va_start(valist, format);
 
   char *logWriteBuffer;
-  vasprintf(&logWriteBuffer, format, valist);
-  write(fd, logWriteBuffer, strlen(logWriteBuffer));
-  free(logWriteBuffer);
+  if (vasprintf(&logWriteBuffer, format, valist) != -1) {
+    write(fd, logWriteBuffer, strlen(logWriteBuffer));
+    free(logWriteBuffer);
+  }
+  va_end(valist);
 }
 
 int getNumberOfDigits(int value) {

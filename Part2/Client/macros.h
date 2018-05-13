@@ -9,6 +9,10 @@
 #define READING_FIFO_ERROR 5
 #define SEMAPHORE_ERROR 6
 
+#define WIDTH_PID 5
+#define WIDTH_XXNN 5
+#define WIDTH_SEAT 4
+
 #define SERVER_FIFO "/tmp/requests"
 
 #endif

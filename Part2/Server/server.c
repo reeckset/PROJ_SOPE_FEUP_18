@@ -41,13 +41,21 @@ void getNumberOfDigitsValues(int nSeats, int nTicketOffices) {
   nDigitsNSeats = getNumberOfDigits(MAX_CLI_SEATS);
 }
 
+void clearClientLog() {
+  int fd = open("../Client/clog.txt", O_WRONLY | O_CREAT | O_TRUNC,
+                0666); // clear client log
+  write(fd, "", 0);
+}
+
 void initServer(Input inputs) {
 
   getNumberOfDigitsValues(inputs.nSeats, inputs.nTicketOffices);
 
   int fdServerFifo = initRequestsFifo();
 
-  int fdLog = open("./slog.txt", O_WRONLY | O_CREAT, 0666);
+  int fdLog = open("./slog.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
+
+  clearClientLog();
 
   Seat *seatList = (Seat *)calloc(inputs.nSeats + 1, sizeof(Seat));
 
@@ -74,20 +82,19 @@ void initServer(Input inputs) {
     TicketOfficeArgs *ticketOfficeArgs =
         createTicketOfficeArgs(i, inputs.nSeats, seatList, fdLog, fdServerFifo);
     pthread_create(&tids[i], NULL, initTicketOffice, (void *)ticketOfficeArgs);
-    writeToLog(fdLog, 2, "%0*d-OPEN\n", nDigitsOfTicketOfficeId, i);
+    writeToLog(fdLog, "%0*d-OPEN\n", nDigitsOfTicketOfficeId, i);
     printf("Thread %lu\n", tids[i]);
   }
 
   void *retVal;
   for (int i = 0; i < inputs.nTicketOffices; i++) {
     pthread_join(tids[i], &retVal);
-    writeToLog(fdLog, 2, "%0*d-CLOSED\n", nDigitsOfTicketOfficeId, i);
+    writeToLog(fdLog, "%0*d-CLOSED\n", nDigitsOfTicketOfficeId, i);
     printf("Thread joined %lu\n", tids[i]);
   }
-  writeToLog(fdLog, 0, "SERVER CLOSED\n");
+  writeToLog(fdLog, "SERVER CLOSED\n");
   close(fdLog);
   writeSBook(seatList, inputs.nSeats);
-  free(seatList);
   if (close(fdServerFifo) != 0) {
     perror("Close fifo error");
     exit(FIFO_ERROR_EXIT);
@@ -106,6 +113,9 @@ void initServer(Input inputs) {
     }
     free(buffer);
   }
+
+  free(seatList);
+  free(tids);
 }
 
 void *initTicketOffice(void *ticketOfficeArgs) {
@@ -194,14 +204,14 @@ void sendResponse(Response response, int pid, TicketOfficeArgs *args,
   if (response.returnCode == 0) {
     char *reservedSeats =
         intArrayToString(response.seats, response.nAllocatedSeats, WIDTH_SEAT);
-    writeToLog(args->fdLog, 9, "%0*d-%0*d-%0*d: %-*s- %s\n",
+    writeToLog(args->fdLog, "%0*d-%0*d-%0*d: %-*s- %s\n",
                nDigitsOfTicketOfficeId, args->id, WIDTH_PID, request.pid,
                nDigitsNSeats, request.numWantedSeats,
                nCharactersOfPreferredSeats, preferredSeats, reservedSeats);
     free(reservedSeats);
   } else {
     char *errorCode = getErrorCode(request.error);
-    writeToLog(args->fdLog, 9, "%0*d-%0*d-%0*d: %-*s- %s\n",
+    writeToLog(args->fdLog, "%0*d-%0*d-%0*d: %-*s- %s\n",
                nDigitsOfTicketOfficeId, args->id, WIDTH_PID, request.pid,
                nDigitsNSeats, request.numWantedSeats,
                nCharactersOfPreferredSeats, preferredSeats, errorCode);
@@ -454,10 +464,10 @@ char *getErrorCode(int error) {
 
 void writeSBook(Seat *seatList, int nSeats) {
   int i;
-  int fdSBook = open("./sbook.txt", O_WRONLY | O_CREAT, 0666);
+  int fdSBook = open("./sbook.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
   for (i = 0; i < nSeats; i++) {
     if (!isSeatFree(seatList, i)) {
-      writeToLog(fdSBook, 2, "%0*d\n", WIDTH_SEAT, i);
+      writeToLog(fdSBook, "%0*d\n", WIDTH_SEAT, i);
     }
   }
   close(fdSBook);

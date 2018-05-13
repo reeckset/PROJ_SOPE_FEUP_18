@@ -11,4 +11,6 @@ int *stringToIntArray(const char *str, const char *errorMsg, int* size);
 
 void printfIntArray(int *array, int size);
 
+void writeToLog(int fd, char *format, ...);
+
 #endif

@@ -11,19 +11,6 @@
 #include "macros.h"
 #include "timeout.h"
 
-void readResponse(int fdResponse) {
-  int returnCode;
-  if (read(fdResponse, &returnCode, sizeof(int)) != sizeof(int)) {
-    perror("Error reading server response");
-    exit(READING_FIFO_ERROR);
-  }
-  if (returnCode != 0) {
-    processReturnCode(returnCode);
-  } else {
-    readAndPrintReservedSeats(fdResponse);
-  }
-}
-
 void gracefulShutdownOnTimeout(int timeout, int pid) {
   int sleepTime = usleep(timeout * 1000);
   printf("Missing time: %d\n", sleepTime);
@@ -46,7 +33,7 @@ void gracefulShutdownOnTimeout(int timeout, int pid) {
   pfd.fd = fdResponse;
   pfd.events = POLLIN;
   if (poll(&pfd, 1, 10) == 1 && pfd.revents == POLLIN) {
-    readResponse(fdResponse);
+    readFromServer(fdResponse);
   }
 
   sem_post(sem);
