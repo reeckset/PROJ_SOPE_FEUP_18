@@ -22,7 +22,7 @@
 #define min(a,b) ((a<b) ? a : b)
 #define MAX_SEATS_STRING_SIZE 4 * MAX_CLI_SEATS + MAX_CLI_SEATS - 1 //4 chars * 99 + 98 spaces
 
-#define DELAY() usleep(1000000)
+#define DELAY() usleep(100000)
 
 #define AYE  0
 #define MAX -1
