@@ -47,7 +47,7 @@ void initServer(Input inputs) {
 
   int fdServerFifo = initRequestsFifo();
 
-  int fdLog = open("./slog.txt", O_WRONLY | O_CREAT, S_IROTH | S_IWOTH);
+  int fdLog = open("./slog.txt", O_WRONLY | O_CREAT, 0666);
 
   Seat *seatList = (Seat *)calloc(inputs.nSeats + 1, sizeof(Seat));
 
@@ -74,17 +74,18 @@ void initServer(Input inputs) {
     TicketOfficeArgs *ticketOfficeArgs =
         createTicketOfficeArgs(i, inputs.nSeats, seatList, fdLog, fdServerFifo);
     pthread_create(&tids[i], NULL, initTicketOffice, (void *)ticketOfficeArgs);
-    writeToLog(fdLog, "%0*d-OPEN\n", nDigitsOfTicketOfficeId, i);
+    writeToLog(fdLog, 2, "%0*d-OPEN\n", nDigitsOfTicketOfficeId, i);
     printf("Thread %lu\n", tids[i]);
   }
 
   void *retVal;
   for (int i = 0; i < inputs.nTicketOffices; i++) {
     pthread_join(tids[i], &retVal);
-    writeToLog(fdLog, "%0*d-CLOSED\n", nDigitsOfTicketOfficeId, i);
+    writeToLog(fdLog, 2, "%0*d-CLOSED\n", nDigitsOfTicketOfficeId, i);
     printf("Thread joined %lu\n", tids[i]);
   }
-  writeToLog(fdLog, "SERVER CLOSED\n");
+  writeToLog(fdLog, 0, "SERVER CLOSED\n");
+  close(fdLog);
   writeSBook(seatList, inputs.nSeats);
   free(seatList);
   if (close(fdServerFifo) != 0) {
@@ -169,7 +170,8 @@ int openResponseFifo(int pid) {
   return fdResponse;
 }
 
-void sendResponse(Response response, int pid, TicketOfficeArgs *args) {
+void sendResponse(Response response, int pid, TicketOfficeArgs *args,
+                  Request request) {
   sem_t *sem = get_client_fifo_semaphore(pid);
   sem_wait(sem);
 
@@ -187,6 +189,24 @@ void sendResponse(Response response, int pid, TicketOfficeArgs *args) {
     }
   }
 
+  char *preferredSeats = intArrayToString(
+      request.preferredSeats, request.numPreferredSeats, WIDTH_SEAT);
+  if (response.returnCode == 0) {
+    char *reservedSeats =
+        intArrayToString(response.seats, response.nAllocatedSeats, WIDTH_SEAT);
+    writeToLog(args->fdLog, 9, "%0*d-%0*d-%0*d: %-*s- %s\n",
+               nDigitsOfTicketOfficeId, args->id, WIDTH_PID, request.pid,
+               nDigitsNSeats, request.numWantedSeats,
+               nCharactersOfPreferredSeats, preferredSeats, reservedSeats);
+    free(reservedSeats);
+  } else {
+    char *errorCode = getErrorCode(request.error);
+    writeToLog(args->fdLog, 9, "%0*d-%0*d-%0*d: %-*s- %s\n",
+               nDigitsOfTicketOfficeId, args->id, WIDTH_PID, request.pid,
+               nDigitsNSeats, request.numWantedSeats,
+               nCharactersOfPreferredSeats, preferredSeats, errorCode);
+    free(preferredSeats);
+  }
   sem_post(sem);
   sem_close(sem);
 }
@@ -194,19 +214,10 @@ void sendResponse(Response response, int pid, TicketOfficeArgs *args) {
 void handleRequest(TicketOfficeArgs *args, Request request,
                    int preferredSeatsSize) {
 
-  char *preferredSeats =
-      intArrayToString(request.preferredSeats, preferredSeatsSize, WIDTH_SEAT);
   Response response;
   if (request.error) {
     response.returnCode = request.error;
-    sendResponse(response, request.pid, args);
-    char *errorCode = getErrorCode(request.error);
-    writeToLog(args->fdLog, "%0*d-%0*d-%0*d: %-*s- %s\n",
-               nDigitsOfTicketOfficeId, args->id, WIDTH_PID, request.pid,
-               nDigitsNSeats, request.numWantedSeats,
-               nCharactersOfPreferredSeats, preferredSeats, errorCode);
-    free(errorCode);
-    free(preferredSeats);
+    sendResponse(response, request.pid, args, request);
     return;
   }
 
@@ -216,10 +227,6 @@ void handleRequest(TicketOfficeArgs *args, Request request,
 
   if (requestedSeatsResult == NULL) {
     request.error = NAV;
-    writeToLog(args->fdLog, "%0*d-%0*d-%0*d: %-*s- %s\n",
-               nDigitsOfTicketOfficeId, args->id, WIDTH_PID, request.pid,
-               nDigitsNSeats, request.numWantedSeats,
-               nCharactersOfPreferredSeats, preferredSeats, "NAV");
   } else { // Seats are available
     pthread_mutex_lock(&updateOccupiedMutex);
     args->nOccupiedSeats += request.numWantedSeats;
@@ -229,18 +236,7 @@ void handleRequest(TicketOfficeArgs *args, Request request,
   response.returnCode = request.error;
   response.nAllocatedSeats = request.numWantedSeats;
   response.seats = requestedSeatsResult;
-  sendResponse(response, request.pid, args);
-
-  if (response.returnCode == 0) {
-    char *reservedSeats = intArrayToString(
-        requestedSeatsResult, response.nAllocatedSeats, WIDTH_SEAT);
-    writeToLog(args->fdLog, "%0*d-%0*d-%0*d: %-*s- %s\n",
-               nDigitsOfTicketOfficeId, args->id, WIDTH_PID, request.pid,
-               nDigitsNSeats, request.numWantedSeats,
-               nCharactersOfPreferredSeats, preferredSeats, reservedSeats);
-    free(reservedSeats);
-  }
-  free(preferredSeats);
+  sendResponse(response, request.pid, args, request);
 
   if (!request.error) {
     free(requestedSeatsResult);
@@ -458,12 +454,11 @@ char *getErrorCode(int error) {
 
 void writeSBook(Seat *seatList, int nSeats) {
   int i;
-  int fdSBook = open("./sbook.txt", O_WRONLY | O_CREAT, 666);
+  int fdSBook = open("./sbook.txt", O_WRONLY | O_CREAT, 0666);
   for (i = 0; i < nSeats; i++) {
-    printf("Processing seat %d - %d\n", i, seatList[i]);
     if (!isSeatFree(seatList, i)) {
-      printf("Found occupied seat!\n");
-      writeToLog(fdSBook, "%0*d\n", WIDTH_SEAT, i);
+      writeToLog(fdSBook, 2, "%0*d\n", WIDTH_SEAT, i);
     }
   }
+  close(fdSBook);
 }

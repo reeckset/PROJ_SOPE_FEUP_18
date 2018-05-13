@@ -60,9 +60,8 @@ sem_t *get_client_fifo_semaphore(int pid);
 
 void verifyRequestErrors(Request* request, TicketOfficeArgs* args, int preferredSeatsSize);
 
-void sendResponse(Response response, int pid, TicketOfficeArgs *args);
-
-void writeToLog(int fd, char *format, ...);
+void sendResponse(Response response, int pid, TicketOfficeArgs *args,
+                  Request request);
 
 char *getErrorCode(int error);
 
