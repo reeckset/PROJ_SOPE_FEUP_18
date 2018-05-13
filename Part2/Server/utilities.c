@@ -119,16 +119,9 @@ char *intArrayToString(int *array, int size, int digitAmount) {
   return buffer;
 }
 
-void writeToLog(int fd, char *format, ...) {
+void writeToLog(int fd, int nArgs, char *format, ...) {
   va_list valist;
-  int i;
-  int numCount = 0;
-  for (i = 0; i < (int)strlen(format) - 1; i++) {
-    numCount++;
-    if (format[i] == '%' && isalpha(format[i + 1])) {
-    }
-  }
-  va_start(valist, numCount);
+  va_start(valist, nArgs);
 
   char *logWriteBuffer;
   vasprintf(&logWriteBuffer, format, valist);
