@@ -22,4 +22,7 @@ int *stringToIntArray(const char *str, const char *errorMsg, int* size, int* ret
 char *intArrayToString(int* array, int size, int digitAmount);
 
 void writeToLog(int fd, char *format, ...);
+
+int getNumberOfDigits(int value);
+
 #endif

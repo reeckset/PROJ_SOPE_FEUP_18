@@ -66,6 +66,8 @@ void writeToLog(int fd, char *format, ...);
 
 char *getErrorCode(int error);
 
+void writeSBook(Seat *seatList, int nSeats);
+
 TicketOfficeArgs *createTicketOfficeArgs(int ticketOfficeNum, int nSeats,
                                          Seat *seatList, int fdLog,
                                          int fdServerFifo);

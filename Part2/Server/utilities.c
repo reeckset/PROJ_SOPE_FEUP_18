@@ -135,3 +135,13 @@ void writeToLog(int fd, char *format, ...) {
   write(fd, logWriteBuffer, strlen(logWriteBuffer));
   free(logWriteBuffer);
 }
+
+int getNumberOfDigits(int value) {
+  int c = 0;
+  int lastResult = value;
+  while (lastResult >= 1) {
+    lastResult /= 10;
+    c++;
+  }
+  return c;
+}
