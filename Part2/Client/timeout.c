@@ -33,7 +33,7 @@ void gracefulShutdownOnTimeout(int timeout, int pid) {
   pfd.fd = fdResponse;
   pfd.events = POLLIN;
   if (poll(&pfd, 1, 10) == 1 && pfd.revents == POLLIN) {
-    readFromServer(fdResponse);
+    readFromServer(fdResponse, sem);
   }
 
   sem_post(sem);
