@@ -10,6 +10,7 @@
 #include "client.h"
 #include "macros.h"
 #include "utilities.h"
+#include "timeout.h"
 
 char *createResponseFifo() {
   char *fifoName = NULL;
@@ -57,10 +58,12 @@ void readAndPrintReservedSeats(int fd, int fdLog, int fdCBook) {
 
 void processReturnCode(int code) { printf("Return code %d\n", code); }
 
-void readFromServer(int fdResponse) {
+void readFromServer(int fdResponse, sem_t * sem) {
   int returnCode;
   if (read(fdResponse, &returnCode, sizeof(int)) != sizeof(int)) {
     perror("Error reading server response");
+    sem_post(sem);
+    sem_close(sem);
     exit(READING_FIFO_ERROR);
   }
   int fdLog = open("clog.txt", O_WRONLY | O_CREAT | O_APPEND, 0666);
@@ -77,14 +80,22 @@ void readFromServer(int fdResponse) {
 }
 
 void processReponse(char *responseFifoName) {
+  //Wait semaphore
+  sem_t *sem = get_client_fifo_semaphore(getpid());
+  sem_wait(sem);
   int fdResponse = open(responseFifoName, O_RDONLY);
   if (fdResponse == -1) {
     perror("Opening response FIFO");
+    sem_post(sem);
+    sem_close(sem);
     exit(FIFO_ERROR_EXIT);
   }
-  readFromServer(fdResponse);
+  readFromServer(fdResponse, sem);
   unlink(responseFifoName);
   kill(getppid(), SIGKILL);
+  sem_post(sem);
+  sem_close(sem);
+  //Signal semaphore
 }
 
 char *getErrorCode(int error) {

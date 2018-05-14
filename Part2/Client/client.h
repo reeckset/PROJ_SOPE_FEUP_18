@@ -1,6 +1,8 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
+#include <semaphore.h>
+
 typedef struct {
   int pid;
   int numWantedSeats;
@@ -23,7 +25,7 @@ void readAndPrintReservedSeats(int fd, int fdLog, int fdCBook);
 
 void processReturnCode(int code);
 
-void readFromServer(int fdResponse);
+void readFromServer(int fdResponse, sem_t *sem);
 
 void processReponse(char *responseFifoName);
 

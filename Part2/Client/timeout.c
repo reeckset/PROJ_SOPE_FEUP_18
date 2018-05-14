@@ -14,7 +14,6 @@
 void gracefulShutdownOnTimeout(int timeout, int pid) {
   int sleepTime = usleep(timeout * 1000);
   printf("Missing time: %d\n", sleepTime);
-  kill(pid, SIGKILL);
 
   char *fifoName = NULL;
   asprintf(&fifoName, "/tmp/ans%d", getpid());
@@ -22,6 +21,7 @@ void gracefulShutdownOnTimeout(int timeout, int pid) {
   sem_t *sem = get_client_fifo_semaphore(getpid());
   sem_wait(sem);
 
+  kill(pid, SIGKILL);
   int fdResponse = open(fifoName, O_RDWR);
   if (fdResponse == -1) {
     perror("Opening response FIFO");
@@ -33,7 +33,7 @@ void gracefulShutdownOnTimeout(int timeout, int pid) {
   pfd.fd = fdResponse;
   pfd.events = POLLIN;
   if (poll(&pfd, 1, 10) == 1 && pfd.revents == POLLIN) {
-    readFromServer(fdResponse);
+    readFromServer(fdResponse, sem);
   }
 
   sem_post(sem);
