@@ -42,8 +42,8 @@ void getNumberOfDigitsValues(int nSeats, int nTicketOffices) {
 }
 
 void clearClientLog() {
-  unlink("../Client/clog.txt");  // clear client log
-  unlink("../Client/cbook.txt"); // clear client book
+  unlink("clog.txt");  // clear client log
+  unlink("cbook.txt"); // clear client book
 }
 
 void initServer(Input inputs) {
