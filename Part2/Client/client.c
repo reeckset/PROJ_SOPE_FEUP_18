@@ -63,8 +63,8 @@ void readFromServer(int fdResponse) {
     perror("Error reading server response");
     exit(READING_FIFO_ERROR);
   }
-  int fdLog = open("./clog.txt", O_WRONLY | O_CREAT | O_APPEND, 0666);
-  int fdCBook = open("./cbook.txt", O_WRONLY | O_CREAT | O_APPEND, 0666);
+  int fdLog = open("clog.txt", O_WRONLY | O_CREAT | O_APPEND, 0666);
+  int fdCBook = open("cbook.txt", O_WRONLY | O_CREAT | O_APPEND, 0666);
 
   if (returnCode != 0) {
     processReturnCode(returnCode);

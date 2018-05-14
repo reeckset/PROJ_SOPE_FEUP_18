@@ -42,9 +42,8 @@ void getNumberOfDigitsValues(int nSeats, int nTicketOffices) {
 }
 
 void clearClientLog() {
-  int fd = open("../Client/clog.txt", O_WRONLY | O_CREAT | O_TRUNC,
-                0666); // clear client log
-  write(fd, "", 0);
+  unlink("../Client/clog.txt");  // clear client log
+  unlink("../Client/cbook.txt"); // clear client book
 }
 
 void initServer(Input inputs) {
@@ -201,6 +200,7 @@ void sendResponse(Response response, int pid, TicketOfficeArgs *args,
 
   char *preferredSeats = intArrayToString(
       request.preferredSeats, request.numPreferredSeats, WIDTH_SEAT);
+  printf("%s\n", preferredSeats);
   if (response.returnCode == 0) {
     char *reservedSeats =
         intArrayToString(response.seats, response.nAllocatedSeats, WIDTH_SEAT);
