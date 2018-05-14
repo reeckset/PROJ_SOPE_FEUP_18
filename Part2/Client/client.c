@@ -10,6 +10,7 @@
 #include "client.h"
 #include "macros.h"
 #include "utilities.h"
+#include "timeout.h"
 
 char *createResponseFifo() {
   char *fifoName = NULL;
@@ -77,6 +78,9 @@ void readFromServer(int fdResponse) {
 }
 
 void processReponse(char *responseFifoName) {
+  //Wait semaphore
+  sem_t *sem = get_client_fifo_semaphore(getpid());
+  sem_wait(sem);
   int fdResponse = open(responseFifoName, O_RDONLY);
   if (fdResponse == -1) {
     perror("Opening response FIFO");
@@ -85,6 +89,9 @@ void processReponse(char *responseFifoName) {
   readFromServer(fdResponse);
   unlink(responseFifoName);
   kill(getppid(), SIGKILL);
+  sem_post(sem);
+  sem_close(sem);
+  //Signal semaphore
 }
 
 char *getErrorCode(int error) {
