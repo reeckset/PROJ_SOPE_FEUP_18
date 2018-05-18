@@ -59,7 +59,7 @@ void initServer(Input inputs) {
   Seat *seatList = (Seat *)calloc(inputs.nSeats + 1, sizeof(Seat));
 
   activateSignalHandler();
-  // TODO ERASE
+
   for (int i = 0; i < inputs.nSeats; i++) {
     char *buffer = NULL;
     asprintf(&buffer, "/sem%d", i);
@@ -133,7 +133,7 @@ void *initTicketOffice(void *ticketOfficeArgs) {
       break;
     }
   }
-
+  free(args);
   return NULL;
 }
 
@@ -215,8 +215,9 @@ void sendResponse(Response response, int pid, TicketOfficeArgs *args,
                nDigitsOfTicketOfficeId, args->id, WIDTH_PID, request.pid,
                nDigitsNSeats, request.numWantedSeats,
                nCharactersOfPreferredSeats, preferredSeats, errorCode);
-    free(preferredSeats);
+    free(errorCode);
   }
+  free(preferredSeats);
   sem_post(sem);
   sem_close(sem);
 }
@@ -302,7 +303,7 @@ void processClientMsg(TicketOfficeArgs *args) {
 
   handleRequest(args, request, preferredSeatsSize);
   free(request.preferredSeats);
-  free(args);
+  // free(args);
   printf("Finished Request\n");
 }
 
